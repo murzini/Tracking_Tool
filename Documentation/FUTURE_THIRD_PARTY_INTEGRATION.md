@@ -87,6 +87,27 @@ Field meaning, required/optional status, and milestone context for these are det
 
 The batching, ingestion, and sampling design for host-scale traffic (thousands/day) is documented in `Documentation/SCALE_DESIGN.md`. M3 is design-only here; the batched ingest pipe and sampling gate are built in M4. This is consistent with the "Embedding architecture → Capture side" note that the snippet sends *batched* event data to the product API.
 
+## M4 integration-ready state
+
+M4 built the batched capture pipe + sampling gate and captured the full event set. Integration-facing changes:
+
+### Data model changes (M4)
+
+- **Rich events captured.** Beyond click/tap: `mouse-move` (desktop mouse + mobile finger via `touchmove`), `scroll` (depth), `field-focus` / `field-blur` / `field-change` (filled/length only — **never the raw value**), `validation-error`, and `element-visible` / `element-hidden` (with visible duration). All ride the `events.type` + JSONB `detail` shape defined in M3 — no schema migration. Field definitions live in `Documentation/DATA.md`.
+- **Session outcome states.** `outcome` now takes `advanced` / `completed` (success, on step navigation), `abandoned` (drop-off), and `in-progress` (committed-but-unfinalized). `exit_reason` (`idle` / `nav-click` / `back` / `left-browser`) records how a non-completed step was left. `step_active_ms` / `step_idle_ms` split time-on-step (`active + idle = duration`). All durable, queryable fields — see `DATA.md`.
+
+### API contracts (M4)
+
+- `POST /api/checkout-heatmap/ingest` — **the live write path.** Body `{ session, events:[...] }`. Idempotent: events `ON CONFLICT (id) DO NOTHING`; session upsert is COALESCE/GREATEST-protected, so re-delivery never dupes or erases a finalized result. The client streams batches here (interval/size flush via `fetch` `keepalive`, unload flush via `sendBeacon`). **Stable** for the POC; the snippet-based capture transport (Embedding architecture → Capture side) builds on this batch shape.
+- `POST /api/checkout-heatmap/sweep` — lazy/derived finalize (there is no always-on runtime): marks stale unfinalized sessions `abandoned` after the grace window. Body `{ now?, force? }`. **Provisional POC mechanism** — in production a scheduled job or queue replaces the request-triggered sweep (M8).
+- Legacy `POST /api/checkout-heatmap` is kept for back-compat but is no longer called by the client.
+
+### Configurable rules (M4)
+
+- **Visitor sampling gate:** a per-visit decision persisted in the `m1.heatmap.sampled` cookie; rate resolves `heatmapSampleRate` query param → `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` env → default `1` (100%). If a visit is not sampled, capture is fully off. The dashboard control is M6; the external-rate contract is M8.
+- **Mouse/finger-move throttle:** ~100 ms (≈10 Hz). Tunable; the path-fidelity vs volume trade-off is revisited at real scale (M8).
+- **Resume window `X`:** see "Session resume and external re-entry" below.
+
 ## Scan new page
 
 When the product is pointed at a new page or checkout step, the following approach determines which elements get tracked.

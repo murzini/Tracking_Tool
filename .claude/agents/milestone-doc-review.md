@@ -80,6 +80,12 @@ All documents live in `Documentation/` except `README.md` and `ONBOARDING.md` wh
    - Milestone-locked language ("the M1 suite", "personal-info only", "local JSON store") matches the current milestone, or — better — is phrased discovery-based so it cannot drift.
    - Flag any reference that does not resolve as a gap, with the exact fix.
 
+11. **Undocumented tech-debt scan** (code → register) — *detect new debt created since the last review*
+   - Scan the milestone's changed/added code for tech-debt signals: `TODO` / `FIXME` / `HACK` / `XXX` comments; skipped or disabled tests (`test.skip`, `test.fixme`, a stray `.only`); commented-out assertions; swallowed errors (empty `catch {}` that hide real failures); hardcoded workarounds; and "temporary" / "for now" notes left in the code.
+   - Cross-check each signal against the **Tech Debt register** in `PRODUCT_OVERVIEW.md`: every real debt introduced since the last milestone must be recorded there — **both critical and non-critical**.
+   - Flag any debt signal not represented in the register as a gap, with a proposed entry and a critical/non-critical classification and rationale. (This is *detection*; whether a critical item blocks close is enforced separately by `milestone-prereqs`.)
+   - Also flag the reverse: a register item marked resolved whose code/workaround is still present.
+
 ## How to approach this
 
 1. Read **every** document in `Documentation/` (list the directory first), plus `README.md` and `ONBOARDING.md` in the repo root. Do not skip a doc just because it is not named in the section above.
@@ -87,7 +93,8 @@ All documents live in `Documentation/` except `README.md` and `ONBOARDING.md` wh
 3. Read **every** spec file under `tests/e2e/` (`tests/e2e/*.spec.ts`) to verify that documented test cases match actual test code.
 4. For each document, check every claim against what you read in the code. When verifying the schema in `DATA.md`, check it against the session/event normalize + finalize functions in the store/model modules as they are currently named (the model generalised `clicks[]` → `events[]` in M3) — do not assume function names from a previous milestone.
 5. Run the reference-resolution check over `.claude/agents/*.md` (item 10 above).
-6. Produce the gap report.
+6. Scan the milestone's code changes for tech-debt signals and cross-check them against the Tech Debt register (item 11 above).
+7. Produce the gap report.
 
 ## Output format
 

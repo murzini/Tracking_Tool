@@ -38,11 +38,11 @@ The mapping below is a guide for the common files; treat `Documentation/TEST_CAS
 - `lib/prototype/db.js` — affects Tests 20–27 (Neon client + `HEATMAP_DB_SCHEMA` selection; underlies all DB-backed tests, including M4 28–42)
 - `app/api/checkout-heatmap/query/route.js` — affects Tests 20–26 (read-only query API: step/view/from/to filters)
 - `app/api/checkout-heatmap/cleanup/route.js` — affects Test 27 (TTL/archival cleanup)
-- `app/checkout/[sku]/heatmap/page.jsx` — affects Tests 7, 8, 9, 11, 17, 18, 19, 39, 40 (step-aware viewer, click-dot rendering, surface + fixed-overlay anchor resolution, M4 mouse-move/scroll views + type/style toggle)
+- `app/checkout/[sku]/heatmap/page.jsx` — affects Tests 7, 8, 9, 11, 17, 18, 19, 39, 40, 43 (step-aware viewer, click-dot rendering incl. opacity-by-count, surface + fixed-overlay anchor resolution, the mouse-move trails + scroll colour-by-depth views, the type toggle — one style per type since Part 8 — and the mobile finger-movement render + disclaimer)
 - `app/checkout/[sku]/page.jsx` — affects Tests 1, 3, 12, 18, 28 (checkout page, step resolution, capture enablement on all steps, single-click step navigation)
 - `components/prototype/TopBar.jsx` — affects Tests 2, 3, 11 (Clear data button, Heatmap step dropdown, `nav:header` anchor)
 - `components/prototype/shopRuntime.js` — affects Tests 4, 5, 17 (ShopFrame, mobile width, chatbot fixed icon)
-- `lib/ui/breakpoints.js` — affects Tests 5, 31 (desktop breakpoint changes view classification; mouse-move is desktop-only)
+- `lib/ui/breakpoints.js` — affects Tests 5, 31 (desktop breakpoint changes view classification; movement capture differs by view — desktop records mouse-move, mobile records finger-move since Part 7)
 
 ## How to respond
 

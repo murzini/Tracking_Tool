@@ -18,7 +18,8 @@ Before a milestone is declared complete, verify that every mandatory prerequisit
 5. **`Documentation/FUTURE_THIRD_PARTY_INTEGRATION.md` reviewed** — must be reviewed and updated at the end of each milestone.
 6. **`Documentation/DATA.md` reviewed** — if the session or click schema changed, or the storage approach changed, `DATA.md` must be updated to reflect the current state.
 7. **`milestone-doc-review` agent run** — must be run and logged in `Documentation/AGENT_RUN_LOG.csv` with status `OK` or `GAPS-FIXED`.
-8. **All milestone work committed to git** — the milestone's code, tests, and docs must be committed (the commit is the milestone's restore point). The working tree must have no uncommitted milestone changes and no relevant untracked files left out. This is a hard gate (see `Documentation/AGENTS.md` → Completion and testing → "Commit is a milestone-finalize gate").
+8. **Tech-debt review done — no new undocumented or open-critical debt** — the Tech Debt register in `PRODUCT_OVERVIEW.md` must record **all** debt introduced during the milestone (critical **and** non-critical), and **every critical item must be resolved** before the milestone can close. New debt is surfaced by `milestone-doc-review`'s undocumented tech-debt scan (item 11) — its gap report must show no debt signal missing from the register. Any open critical item → NOT READY.
+9. **All milestone work committed to git** — the milestone's code, tests, and docs must be committed (the commit is the milestone's restore point). The working tree must have no uncommitted milestone changes and no relevant untracked files left out. This is a hard gate (see `Documentation/AGENTS.md` → Completion and testing → "Commit is a milestone-finalize gate").
 
 ## How to check
 
@@ -26,9 +27,10 @@ Before a milestone is declared complete, verify that every mandatory prerequisit
 2. Read `Documentation/AGENT_RUN_LOG.csv` — check for entries from `milestone-doc-review` and any other relevant agents for this milestone.
 3. Read `Documentation/TEST_CASES.md` — verify test case documentation is current for the milestone scope.
 4. Read `Documentation/DATA.md` — verify schema and storage approach are current for the milestone scope.
-5. Read `Documentation/PRODUCT_OVERVIEW.md` — understand what the milestone delivered.
-6. Check git state with `git status --short` and `git log --oneline -5` — confirm the milestone's work is committed: no uncommitted changes to milestone files and no relevant untracked files. (Generated/secret paths — `test-results/`, `.env.local` — are expected to be absent/ignored, not committed.)
-7. For each prerequisite, make a judgment: **MET** or **MISSING**, with a one-line reason.
+5. Read `Documentation/PRODUCT_OVERVIEW.md` — understand what the milestone delivered, and read its **Tech Debt register**.
+6. Confirm the tech-debt review: check the latest `milestone-doc-review` gap report (its undocumented tech-debt scan, item 11) shows no debt signal missing from the register, and that no item under **Tech Debt → Critical** is still open for this milestone. If `milestone-doc-review` has not run since the last code change, the tech-debt scan is stale — treat prerequisite 8 as MISSING.
+7. Check git state with `git status --short` and `git log --oneline -5` — confirm the milestone's work is committed: no uncommitted changes to milestone files and no relevant untracked files. (Generated/secret paths — `test-results/`, `.env.local` — are expected to be absent/ignored, not committed.)
+8. For each prerequisite, make a judgment: **MET** or **MISSING**, with a one-line reason.
 
 ## Output format
 
@@ -44,7 +46,8 @@ Prerequisite checklist:
 5. Future integration doc reviewed — MET / MISSING — <reason>
 6. DATA.md reviewed                — MET / MISSING — <reason>
 7. milestone-doc-review run        — MET / MISSING — <reason>
-8. All milestone work committed    — MET / MISSING — <reason>
+8. Tech-debt reviewed (no new/open-critical) — MET / MISSING — <reason>
+9. All milestone work committed    — MET / MISSING — <reason>
 
 Verdict: READY / NOT READY
 <If NOT READY: list exactly what must be done before the milestone can close>

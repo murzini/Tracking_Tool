@@ -4,6 +4,8 @@ This document is the single source of truth for all agent-related information: w
 
 Read `Documentation/PRODUCT_OVERVIEW.md` before making product decisions or implementation changes.
 
+> **Source of truth for the working rules.** The completion and milestone-start **working rules** are authoritative *here* in `AGENTS.md`. `PRODUCT_OVERVIEW.md` carries a convenience copy in its "Working rules" section; if the two ever diverge, **this file wins** — change a rule here first, then reconcile the mirror. (The Tech Debt register and milestone scope, by contrast, live authoritatively in `PRODUCT_OVERVIEW.md`.)
+
 ## Philosophy
 - Agents support repeatable quality work around implementation, testing, and regression handling.
 - The main benefits are better consistency, faster review of likely test impact, clearer regression triage, and stronger coverage of precision-sensitive behavior.
@@ -91,6 +93,7 @@ A milestone is not considered started until `milestone-start` has been run and r
 - If scope, tests, or workflows changed, relevant agents must be added, updated, or deprecated.
 - A milestone is not considered complete until this agent review has been done and reported explicitly.
 - At the end of each milestone, `Documentation/FUTURE_THIRD_PARTY_INTEGRATION.md` must be reviewed and updated accordingly.
+- **Tech-debt review is a completion gate.** At the end of each milestone the Tech Debt register in `PRODUCT_OVERVIEW.md` must record **all** debt introduced during the milestone (critical **and** non-critical) and strike resolved items; **every critical item must be resolved** before the milestone is complete. New or undocumented debt is detected by `milestone-doc-review` (its undocumented tech-debt scan) and enforced at close by `milestone-prereqs`. A milestone is not complete until this review is done and reported explicitly.
 - **Commit is a milestone-finalize gate.** A milestone is not considered complete until all of its work (code, tests, and docs) is committed to git — the commit is the milestone's restore point. `milestone-prereqs` verifies a committed/clean tree before returning READY. Commit by explicit path (not a blanket `git add -A`) so secrets (`.env.local`, which holds the Neon `DATABASE_URL`) and generated files (`test-results/`) are never committed.
 - **Recommended commit cadence (not just at milestone end):** also commit per part/chunk and per working session, so work is never more than one bad edit away from a restore point. This is a recommendation; the per-milestone commit is the hard gate.
 - These rules apply to milestone work, fixes, refactors, and any other change that may impact covered scope.

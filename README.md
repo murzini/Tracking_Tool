@@ -6,6 +6,18 @@ This repo contains the standalone **Shop** application:
 - Supports Student tour mode via query parameters (`tour`, `step`, `sku`).
 - Owns local fallback API routes for `landing`, `search`, and `details` config.
 
+## Documentation
+
+Detailed docs live in `Documentation/` (plus `onboarding.md` at the repo root for session-to-session context):
+
+- `PRODUCT_OVERVIEW.md` — product vision, milestone scope, working rules, tech-debt register.
+- `ARCHITECTURE_OVERVIEW.md` — system architecture, data flow, file boundaries.
+- `DATA.md` — Postgres schema (`sessions` + `events`) and field definitions.
+- `TEST_CASES.md` — full per-test specifications and the authoritative test count.
+- `AGENTS.md` — working rules and the agent catalogue.
+- `FUTURE_THIRD_PARTY_INTEGRATION.md` — integration seams for embedding into a host product.
+- `SCALE_DESIGN.md` — batching / ingestion / sampling design for host-scale traffic.
+
 ## Run locally
 ```bash
 npm install
@@ -28,7 +40,7 @@ npm run dev
 
 ## Heatmap
 
-All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor click behaviour and visualise it as dot overlays.
+All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor behaviour — clicks, mouse/finger movement, and scroll depth — and visualise it as selectable overlays: click dots (opacity-by-count), mouse-move trails, and scroll colour-by-depth (chosen via the type toggle on the heatmap page).
 
 - Click the **Heatmap** button in the top bar — it is a step dropdown; selecting a step opens that step's heatmap in a new tab.
 - Append `?m1HeatmapTest=1` to the checkout URL to activate the 2-second inactivity threshold for automated testing (default is 30 seconds).
@@ -57,10 +69,7 @@ On Windows, run the isolated suite (starts its own dev server on a clean port 30
 npm run test:e2e
 ```
 
-Full regression suite — 48 tests across thirteen spec files (backed by the Neon Postgres store):
-```bash
-npx playwright test tests/e2e/m1-heatmap.spec.ts tests/e2e/m1-heatmap-anchor.spec.ts tests/e2e/m1-heatmap-registry-sync.spec.ts tests/e2e/m2-scanner-pi.spec.ts tests/e2e/m2-delivery-pay.spec.ts tests/e2e/m2-fixed-position.spec.ts tests/e2e/m2-viewer.spec.ts tests/e2e/m3-query-api.spec.ts tests/e2e/m4-step-nav.spec.ts tests/e2e/m4-ingest.spec.ts tests/e2e/m4-mousemove-scroll.spec.ts tests/e2e/m4-field-visibility.spec.ts tests/e2e/m4-session-signals.spec.ts
-```
+`npx playwright test` (or `npm run test:e2e`) runs the **whole** suite — every spec file under `tests/e2e/`, backed by the Neon Postgres store. For the authoritative test count and the test-number → behaviour → spec-file mapping, see `Documentation/TEST_CASES.md`. This README intentionally does not hardcode a count or file list (they drift).
 
 ## Deploy to Vercel
 - Framework: Next.js

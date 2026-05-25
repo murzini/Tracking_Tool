@@ -4,6 +4,8 @@
 
 The purpose is to make the scale decisions explicit now so the M3 schema and storage choices do not have to be retrofitted later.
 
+> **M4 update (2026-05-25):** this design has since been **built in M4** — the client ring buffer + flush, the `/ingest` batch endpoint (multi-row INSERT, idempotent), the visitor sampling gate, and the ~10 Hz movement throttle all shipped as designed. See **§7 M4 outcomes** at the end for what was implemented and how the §6 open risks turned out. The sections below are the original design and remain accurate as the rationale.
+
 ---
 
 ## 1. Volume target and constraints
@@ -104,3 +106,23 @@ M3 stores the `sampling_rate` field only. The **mechanism is built in M4**. Thre
 - **Indexes and pooling** are designed for millions of rows but only exercised at ~1k/day in M3; revalidate under M4's richer event stream.
 - **Beacon payload size limits** (~64 KB per `sendBeacon`) cap how many events one unload flush can carry — the interval flush must keep the buffer small enough that the final flush fits.
 - **Query-API payload size** (no pagination yet) — a broad-timeframe query over fully-captured sessions can be large; pagination must land before that path sees real volume.
+
+---
+
+## 7. M4 outcomes (what shipped + how the §6 risks turned out)
+
+The design above was implemented in M4. Status of each piece and each open risk:
+
+**Built as designed:**
+- Client ring buffer + flush on size (50) / interval (5 s) / `pagehide` + `visibilitychange→hidden` beacon (§3.1).
+- `POST /api/checkout-heatmap/ingest` with a multi-row parameterized INSERT, `ON CONFLICT (id) DO NOTHING`, and a COALESCE/GREATEST-protected session upsert (§3.2). `COPY` escalation not needed at POC volume.
+- Visitor sampling gate via the `m1.heatmap.sampled` cookie, default 100% (§4.1); effective `samplingRate` stored per session (§4.3).
+- Movement throttle ~100 ms ≈ 10 Hz (§4.2), applied to desktop mouse-move and (M4 Part 7) mobile finger-move.
+
+**§6 risk outcomes:**
+- **Mouse-move volume / fidelity** — verified end-to-end at POC volume; the throttle keeps per-session rows bounded. Real-scale tuning + possible grid-bucketing is still deferred to **M8** (tracked under Tech Debt → Anticipated-M4).
+- **Indexes / pooling** — still exercised only at ~1k/day; revalidate at Autohero scale (M8).
+- **Beacon ~64 KB cap** — real residual: the unload beacon sends the **whole** session's events, so a very long session can exceed the cap and drop the tail not yet interval-flushed. Bounded; tracked as non-critical (`PRODUCT_OVERVIEW.md` → Tech Debt → "Beacon payload size cap").
+- **Query-API pagination** — still not built; deferred to M8 before broad-timeframe queries hit real volume.
+
+Event-delivery reliability and event-volume-vs-free-tier were the two M4 **critical** debts; both were resolved/verified at M4 close — see `PRODUCT_OVERVIEW.md` → Tech Debt → Critical.
