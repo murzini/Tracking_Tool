@@ -12,29 +12,30 @@ A heatmap product on a Next.js sandbox (Shop). It records visitor behaviour on t
 
 ## Current state
 
-- **M1, M2, M3** — COMPLETE and signed off.
-- **M4 — Extended Interaction Capture** — IN PROGRESS, scope FROZEN. Parts 1–8 done. Part 8 rendering: clicks opacity-by-count, mouse-move trails (volume-aware alpha), scroll green tint + "<n>% saw it" legend; density/fold-line/`?style=` toggle removed. Detail: `PRODUCT_OVERVIEW.md` + `ARCHITECTURE_OVERVIEW.md` → M4 Part 8.
-- **This session (2026-05-25) — three manual-check fixes, ALL UNCOMMITTED:**
-  1. **Click dots — one shared screen-wide scale.** Was scaled per-group (surface vs `position:fixed`), so equal-looking dots could have very different counts. Now a single `maxCount` across both groups drives size + opacity (`buildAnchorAwarePoints` in `app/checkout/[sku]/heatmap/page.jsx`).
-  2. **Mouse-move/scroll views now render in the capture-time layout** (validation off + accordions collapsed) so trails line up with the elements; the clicks view stays fully expanded (needs error anchors). New `forceExpandedLayout` prop on `CheckoutFlow.jsx`, wired from the heatmap page. Tests 39/40 assert it.
-  3. **Session-merge bug — DIAGNOSED, DEFERRED TO M5 (its first task).** Repeated visits to the same step+sku merge into one ever-living `in-progress` session (heatmap/DB show only 1). Cause: passive events refresh the resume/idle clock so the session never idles out → every return resumes. A partial change is **kept** (visibility no longer counts as activity — `recordSessionEvent(..., {resetActivity:false})`) but is **insufficient** — another passive source remains. Repro = **Test 44** (`test.fixme`). Full diagnosis + fix plan: `PRODUCT_OVERVIEW.md` → M5 scope.
-- **Tests:** suite re-run 2026-05-26 → **52 passed, 2 `test.fixme` (skipped), 0 failed.** Test 44 (session-merge) and Test 36 (zero-interaction bounce) are both `test.fixme` — deferred to M5. Green baseline is now 52/52 active tests.
-- **Git:** prior commits on branch `chore/shop-tech-debt-clean` (`193e4c9` … `d63ed94`, local only, not pushed). **This session's changes are ALL UNCOMMITTED — working tree is DIRTY.** Touched: `heatmap/page.jsx`, `CheckoutFlow.jsx`, `checkoutHeatmapClient.js`, `tests/e2e/m4-rendering.spec.ts`, `tests/e2e/m4-session-signals.spec.ts`, `PRODUCT_OVERVIEW.md`, `ARCHITECTURE_OVERVIEW.md`, `TEST_CASES.md`, this file, and a `milestone-prereqs` GAPS-OPEN line in `AGENT_RUN_LOG.csv`.
-- **Deferred to M5** (see `PRODUCT_OVERVIEW.md` → M5 scope): (1) the session-merge fix — **first task** (also enables Test 44 + Test 36); (2) a **model-selector helper agent** (recommends Opus/Sonnet/Haiku by task; scope + tiers TBD).
+- **M1, M2, M3, M4** — COMPLETE and signed off.
+- **M4 closed 2026-05-26.** All 9 prerequisites met: 52/52 tests green (Tests 36+44 `test.fixme`/deferred); all docs current per `milestone-doc-review` GAPS-FIXED; tech debt reviewed (all 7 critical resolved); git clean. Close gates: `milestone-doc-review` logged GAPS-FIXED 2026-05-26 10:30, `milestone-prereqs` logged OK 2026-05-26 01:39.
+  - **M4 deliverables:** Extended interaction capture (mouse-move throttled ~100ms, scroll depth 0–100, field focus/blur/change, visibility depth tracking); batched ingest pipe (5s or 50-event flush + unload beacon); sampling gate (visitor cookie); outcomes (abandoned/advanced/completed/in-progress); exit reasons (idle/nav-click/back/left-browser); step timing (active/idle/duration); lazy finalize (X grace window, `POST /sweep`); rich event polymorphism (click/tap/mouse-move/scroll/field-focus/field-blur/field-change/validation-error/element-visible/element-hidden); heatmap rendering (click dots opacity-by-count, mouse-move trails with volume-aware alpha, scroll color-by-depth gradient with legend).
+  - **Manual-check fixes (committed 681797c):** (1) Click dots now use one shared screen-wide scale across surface + fixed groups (was per-group, causing visual confusion). (2) Mouse-move/scroll views render in capture-time layout (validation off, accordions collapsed) so trails align with elements. (3) Visibility events no longer count as activity (partial session-merge fix).
+  - **Deferred to M5:** Tests 36 (zero-interaction bounce) + 44 (session-merge reproducer) marked `test.fixme`. Test 36 never finalizes because zero-click sessions skip the finalize path (M1 rule: requires ≥1 click). Test 44 still fails even with the visibility fix — another passive source still refreshes the resume clock. Both need the M5 session-merge fix.
+- **M5 — Login Step and Individual Session Attribution** — STARTS HERE.
+  - **Scope frozen** (documented in `PRODUCT_OVERVIEW.md` → M5 section). Two independent tasks: (1) **session-merge bug fix (first task)** — diagnose and fix the remaining passive activity source, enable Tests 44+36; (2) **model-selector helper agent** — recommends model by task type + prompts on task start (scope + tier mapping TBD at M5 start).
+  - **Also in scope:** add a lightweight login step between Details and Personal Information, create named/unique sessions for visitor attribution. This is the core M5 feature (spec in `PRODUCT_OVERVIEW.md` → M5 scope after the two tasks above).
 - **Still deferred to the user:** the `PRODUCT_OVERVIEW.md` structural split.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED ("left, not finalized, may return within X"). See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Finish the M4 close.** The session-merge bug is now out of M4 scope (moved to M5), so it no longer blocks. Do these in order:
+**M5 starts.** The session-merge bug fix is the **first task** (deferred from M4). Do these in order:
 
-- ~~**Re-run the suite**~~ **DONE (2026-05-26) — 52/52 green. Tests 36 + 44 are `test.fixme` (deferred to M5).**
-- **Re-run `milestone-doc-review`** — code changed since its last run (the earlier GAPS-FIXED is stale).
-- **Commit** all this session's work (code + tests + docs) — the milestone restore point. Commit by explicit path; never `.env.local` or `test-results/`.
-- **Re-run `milestone-prereqs` → READY**, log it in `AGENT_RUN_LOG.csv`, then declare M4 complete (report the agent + tech-debt review explicitly). The earlier GAPS-OPEN run is stale.
-- **Optional:** eyeball the three fixes (click scale, trail alignment, scroll tint); decide whether to keep or revert the partial visibility change.
-
-**Then M5 starts with the session-merge bug fix (first task), then the model-selector agent — both specced in `PRODUCT_OVERVIEW.md` → M5 scope.**
+- **Run `milestone-start` → confirm READY** — M4 closed, M5 scope frozen + specified, tech debt reviewed, arch/impl plan + test plan available (see `PRODUCT_OVERVIEW.md` → M5 scope).
+- **Session-merge bug fix (first task in M5):**
+  - Read `PRODUCT_OVERVIEW.md` → M5 scope, item 1 — diagnosis + recommended fix.
+  - Root cause: passive events (non-user / passive interactions) refresh the resume/idle clock, preventing sessions from idling out. The M4 partial fix (visibility ≠ activity) is insufficient; another source still refreshes the clock.
+  - Test 44 reproducer is ready in `tests/e2e/m4-session-signals.spec.ts` (marked `test.fixme`); enable it (remove `.fixme`) once the fix lands, re-run suite to verify green.
+  - Test 36 (zero-interaction bounce) will also be enabled when the fix lands (same reproducer — zero-click sessions never finalize because `clearResumeRef` only runs on finalize, which requires ≥1 click). Mark it `test.fixme` and remove when Test 44 passes.
+- **Then: model-selector helper agent** — scope + tier mapping TBD at M5 start (see `PRODUCT_OVERVIEW.md` → M5 scope, item 2).
+- **Then: login step feature** — lightweight step between Details and Personal Information; creates named/unique sessions (scope in `PRODUCT_OVERVIEW.md` → M5 scope after the two tasks above).
+- **Commit per part/chunk**, as recommended in `AGENTS.md` → Completion and testing.
 
 ## What to read first, in order
 
