@@ -15,7 +15,7 @@ export function BackpackThumb({ seed }) {
         </div>
         <div className="text-center">
           <div className="text-xs font-semibold text-[#1F2A37]">Backpack image</div>
-          <div className="mt-1 text-[11px] text-muted-foreground">Placeholder · #{code}</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">Placeholder - #{code}</div>
         </div>
       </div>
     </div>
@@ -26,10 +26,11 @@ export function Pill({ children }) {
   return <div className="rounded-full border bg-white px-3 py-2 text-xs text-muted-foreground">{children}</div>;
 }
 
-export function StepPill({ active, children }) {
+export function StepPill({ active, children, ...rest }) {
   return (
     <div
-      className={`rounded-full border px-3 py-1 text-xs transition ${active ? "bg-[#3C5A7D] text-white" : "bg-white text-muted-foreground"}`}
+      className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${active ? "bg-[#3C5A7D] text-white" : "bg-white text-muted-foreground"}`}
+      {...rest}
     >
       {children}
     </div>

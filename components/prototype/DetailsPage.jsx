@@ -16,8 +16,8 @@ export function DetailsPage({ item, onBack, onBuy, onCheckout }) {
   const sku = `AB-${String(item.id).padStart(6, "0")}`;
 
   // Base identifier for image naming.
-  // - Base item → use its own baseId (set by catalog) or fallback to its id
-  // - Variation → use its baseId
+  // - Base item -> use its own baseId (set by catalog) or fallback to its id
+  // - Variation -> use its baseId
   const baseId = item?.baseId || item?.id || null;
 
   // Prefer explicit imageUrl (variations will have their own hero), otherwise base items fall back to base hero.
@@ -153,7 +153,7 @@ export function DetailsPage({ item, onBack, onBuy, onCheckout }) {
 
                 {showGallery && (
                   <div className="mt-3 text-xs text-muted-foreground">
-                    Tip: click thumbnails to switch · click the big image to open full size
+                    Tip: click thumbnails to switch - click the big image to open full size
                   </div>
                 )}
               </div>
@@ -168,7 +168,7 @@ export function DetailsPage({ item, onBack, onBuy, onCheckout }) {
                 </div>
                 <div className="mt-2 text-4xl font-semibold tracking-tight">{item.name}</div>
                 <div className="mt-2 text-sm text-muted-foreground">SKU {sku}</div>
-                <div className="mt-6 text-3xl font-semibold">€{item.price}</div>
+                <div className="mt-6 text-3xl font-semibold">EUR {item.price}</div>
                 <div className="mt-6 max-w-md text-sm text-muted-foreground">{item.description}</div>
               </div>
 

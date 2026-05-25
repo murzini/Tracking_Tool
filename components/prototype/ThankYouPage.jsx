@@ -18,7 +18,7 @@ export function ThankYouPage({ onGoHome, inTour, onCompleteTour }) {
             </div>
             <h2 className="mt-6 text-4xl font-semibold tracking-tight">Thank you</h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              Thanks for your trust in AdventureBag. We’re preparing your order and will follow up with the next steps shortly.
+              Thanks for your trust in AdventureBag. We're preparing your order and will follow up with the next steps shortly.
             </p>
             {inTour ? (
               <Button className="mt-8 rounded-2xl px-6" onClick={onCompleteTour}>

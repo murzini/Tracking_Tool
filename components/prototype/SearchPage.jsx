@@ -62,11 +62,8 @@ const optionSets = React.useMemo(() => {
 
   const sortPriceBands = (bands) => {
     const parseMin = (b) => {
-      // examples: "€0–€29", "€30–€49", "€120+"
-      const cleaned = b.replace("€", "");
-      if (cleaned.includes("+")) return Number(cleaned.replace("+", ""));
-      const [min] = cleaned.split("–");
-      return Number(min);
+      const minMatch = String(b).match(/\d+/);
+      return Number(minMatch?.[0] || 0);
     };
     return [...bands].sort((a, b) => parseMin(a) - parseMin(b));
   };
@@ -178,7 +175,7 @@ return (
                         <div className="mt-1 text-xs text-muted-foreground truncate">{it.subtitle}</div>
                       </div>
                       <div className="mt-4 flex items-center justify-between">
-                        <div className="text-sm font-semibold">€{it.price}</div>
+                        <div className="text-sm font-semibold">EUR {it.price}</div>
                         <div className="hidden sm:inline-flex items-center gap-1 rounded-full border bg-white px-3 py-1 text-xs text-muted-foreground">
                           View
                           <ArrowRight className="h-3.5 w-3.5" />

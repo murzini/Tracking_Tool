@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:e2e": "powershell -ExecutionPolicy Bypass -File scripts/run-playwright-isolated.ps1"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "framer-motion": "11.3.8",
     "lucide-react": "0.469.0",
     "next": "14.2.5",
@@ -15,6 +17,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "25.0.9",
     "@types/react": "19.2.8",
     "autoprefixer": "10.4.20",

@@ -18,7 +18,7 @@ export function TourRail({ stepIndex, totalSteps, label, onNext, onPrev, onExit,
             <div>
               <div className="text-sm font-semibold">Shop tour</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                Step {stepIndex + 1} of {totalSteps} · {label}
+                Step {stepIndex + 1} of {totalSteps} - {label}
               </div>
               <div className="mt-2 h-2 w-64 overflow-hidden rounded-full bg-black/10">
                 <div className="h-2 bg-[#3C5A7D]" style={{ width: `${pct}%` }} />

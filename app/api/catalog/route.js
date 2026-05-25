@@ -24,8 +24,8 @@ function inferVarLabel(filename, baseId) {
   const m = filename.match(/_(\d+)\.(png|jpg)$/i);
   const idx = m ? Number(m[1]) : null;
   const baseNum = baseId?.match(/Base_(\d{2})/)?.[1] || "";
-  if (idx != null) return `Base ${baseNum} · Var ${idx}`;
-  return `Base ${baseNum} · Var`;
+  if (idx != null) return `Base ${baseNum} - Var ${idx}`;
+  return `Base ${baseNum} - Var`;
 }
 
 export async function GET() {

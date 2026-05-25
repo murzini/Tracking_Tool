@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "./utils";
 
 // Minimal, dependency-free Accordion.
@@ -13,6 +14,7 @@ export function Accordion({
   type = "single",
   collapsible = false,
   className,
+  forceAllOpen = false,
 }) {
   const [openValue, setOpenValue] = useState(null);
 
@@ -22,8 +24,9 @@ export function Accordion({
       collapsible,
       openValue,
       setOpenValue,
+      forceAllOpen,
     }),
-    [type, collapsible, openValue]
+    [type, collapsible, openValue, forceAllOpen]
   );
 
   return (
@@ -41,7 +44,7 @@ export function AccordionItem({ value, className, children }) {
     throw new Error("AccordionItem must be used within Accordion");
   }
 
-  const isOpen = parent.openValue === value;
+  const isOpen = parent.forceAllOpen || parent.openValue === value;
 
   const toggle = () => {
     if (isOpen) {
@@ -65,7 +68,7 @@ export function AccordionItem({ value, className, children }) {
   );
 }
 
-export function AccordionTrigger({ className, children }) {
+export function AccordionTrigger({ className, children, ...rest }) {
   const item = useContext(AccordionItemCtx);
   if (!item) {
     throw new Error("AccordionTrigger must be used within AccordionItem");
@@ -76,21 +79,19 @@ export function AccordionTrigger({ className, children }) {
       type="button"
       onClick={item.toggle}
       aria-expanded={item.isOpen}
+      {...rest}
       className={cn(
-        "flex w-full items-center justify-between gap-3",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 rounded-2xl",
+        "flex w-full items-center justify-between gap-3 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
         className
       )}
     >
       <span>{children}</span>
-      <span
+      <ChevronDown
         className={cn(
-          "text-xs text-muted-foreground transition",
+          "h-4 w-4 text-muted-foreground transition",
           item.isOpen ? "rotate-180" : ""
         )}
-      >
-        ▾
-      </span>
+      />
     </button>
   );
 }

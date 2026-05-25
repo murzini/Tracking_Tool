@@ -9,3 +9,6 @@ out
 *.log
 Shop.zip
 components/prototype/ResponsiveDebug.jsx
+.m1-data
+test-results
+.claude/settings.local.json

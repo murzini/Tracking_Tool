@@ -1,0 +1,23 @@
+Date,Time,Agent,Status,Summary
+5/20/2026,,milestone-doc-review,GAPS-FIXED,"8 gaps: TEST_CASES ?step= URLs wrong, Test 3 dropdown fictional, Test 11 mislabelled as scanner, arch + README minor issues. All fixed."
+5/20/2026,,milestone-prereqs,OK,"All 6 M1 prerequisites met. Tests green, docs updated, agents reviewed. M1 READY."
+5/20/2026,,milestone-doc-review (arch),GAPS-FIXED,2 gaps: drop-off guard checks clicks not interactions; Case 4 missing accordion/tooltip details. Both fixed.
+5/20/2026,,milestone-start,GAPS-OPEN,"NOT READY: missing scope answers, anticipated tech debt, M2 arch/impl plan, test plan (milestone-test-planning)"
+5/20/2026,,milestone-test-planning,GAPS-OPEN,"M2 plan: keep 4, update 6 (step+re-map IDs, dropdown), update Test 11 to auto-registry; 8 new cases pending approval"
+5/20/2026,,milestone-test-planning,OK,"M2 test plan finalized: 7 M1 tests updated (1,3,7,8,9,10,11) + 8 new (Tests 12-19) approved and documented"
+5/20/2026,,milestone-start,OK,"READY: all 7 M2 prerequisites met - scope specified, tech debt, arch/impl plan, and test plan complete"
+5/21/2026,,heatmap-qa,OK,"M2 Part 4 viewer step-aware + Pay panels forced open + TopBar dropdown; render-only, capture untouched; suite 23/23 green"
+5/21/2026,,heatmap-qa,OK,"M2 Part 5: Test 17 fixed-position OK (sidebar 0px, chatbot 1.4px); registry step-aware; capture path unchanged; 24/24 green"
+5/21/2026,,milestone-doc-review,GAPS-FIXED,"M2 close: registry rename, DATA step field, 23->24 counts, Part 5 status across PRODUCT/ARCH/TEST/DATA/FUTURE/README/onboarding"
+5/21/2026,,milestone-prereqs,OK,M2 READY: 24/24 green; TEST/ARCH/DATA/FUTURE updated; agents reviewed (anchor-registry deprecated); doc-review logged
+5/22/2026,1:12,milestone-test-planning,OK,"M3 plan: keep 11, update 8 (clicks->events shape), remove 0, +8 new (query API, outcome, samplingRate, TTL); test-DB isolation prereq"
+5/22/2026,01:19,milestone-start,OK,"M3 READY: all 7 prereqs met - M2 closed, scope frozen+specified, tech debt reviewed, arch/impl plan + test plan documented"
+5/22/2026,13:30,heatmap-qa,OK,"M3 Part 1: @neondatabase/serverless installed; db.js client; sessions+events tables+indexes in public+heatmap_test schemas; db-status endpoint; playwright test isolation (HEATMAP_DB_SCHEMA=heatmap_test); DATA.md M3 row added. No tests run (no capture change yet)."
+5/22/2026,14:15,heatmap-qa,OK,"M3 Part 2: store rewritten to Postgres (sessions+events tables); clicks[]→events[] rename throughout (checkoutHeatmap.js, client, renderer, 3 test files); 8 tests updated; 24/24 green on Postgres."
+5/22/2026,14:30,heatmap-qa,OK,"M3 doc update: TEST_CASES.md + PRODUCT_OVERVIEW.md updated — Part 1/2 done, 8 updated tests marked implemented, test-DB isolation prereq resolved, 24/24 green noted."
+5/22/2026,15:00,heatmap-qa,OK,"M3 Part 3: outcome+samplingRate fields added (normalize/finalize/store/read); query API at /api/checkout-heatmap/query (step/view/from/to filters); Tests 20-26 added; 31/31 green."
+5/22/2026,16:30,heatmap-qa,OK,"M3 Part 4: cleanupCheckoutHeatmapSessions(before) added to store (finalized_at < $1); POST /api/checkout-heatmap/cleanup route created (before or ttlDays param, default 30d); Test 27 added and green; 32/32 green."
+5/22/2026,17:05,milestone-doc-review,GAPS-FIXED,"M3 close: 5 agent defs made discovery-based + ref-check added; ARCH/README/FUTURE/DATA/PRODUCT M3 updates; SCALE_DESIGN.md added. All gaps fixed."
+5/22/2026,17:10,milestone-prereqs,OK,"M3 READY: 32/32 green; docs updated (TEST/ARCH/DATA/FUTURE/PRODUCT/README); agents reviewed (5 discovery-based); doc-review GAPS-FIXED. All 7 prereqs MET."
+5/22/2026,17:30,milestone-test-planning,OK,"M4 plan: keep 16, update 4 (Test 1 zero-interaction, Test 20 type filter, batched-transport reverify), remove 0, +13 new (Tests 28-40). 2 open items flagged."
+5/22/2026,17:35,milestone-start,OK,"M4 READY: all 7 prereqs met - M3 closed, scope frozen+specified, inherited+anticipated tech debt recorded, arch/7-part plan + test plan documented."

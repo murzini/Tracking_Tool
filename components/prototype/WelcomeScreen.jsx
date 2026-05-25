@@ -26,7 +26,7 @@ export function WelcomeScreen({
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-xs text-muted-foreground shadow-sm">
                 <Sparkles className="h-4 w-4" />
-                Milestone 2 · Student wizard
+                Milestone 2 - Student wizard
               </div>
 
               <h1 className="mt-6 text-5xl font-semibold tracking-tight">
@@ -34,7 +34,7 @@ export function WelcomeScreen({
               </h1>
 
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">
-                This tool is a safe training environment. You’ll tour a simple e-commerce shop, choose a hypothesis,
+                This tool is a safe training environment. You'll tour a simple e-commerce shop, choose a hypothesis,
                 run a simulated experiment, and review results.
               </p>
 
@@ -46,7 +46,7 @@ export function WelcomeScreen({
                     </AccordionTrigger>
                     <AccordionContent className="pb-6 text-sm text-muted-foreground">
                       You will practice defining a problem, writing a hypothesis, choosing metrics, and interpreting outcomes.
-                      (Placeholder text; we’ll refine later.)
+                      (Placeholder text; we'll refine later.)
                     </AccordionContent>
                   </AccordionItem>
 
@@ -100,7 +100,7 @@ export function WelcomeScreen({
                         {tourCompleted ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : null}
                         <span>1) Tour the shop</span>
                       </div>
-                      <div className="mt-1 text-xs">You’ll see key pages and where users might drop off.</div>
+                      <div className="mt-1 text-xs">You'll see key pages and where users might drop off.</div>
                     </div>
 
                     <div className="rounded-3xl border bg-white p-4">
@@ -108,7 +108,7 @@ export function WelcomeScreen({
                         {hypothesisCompleted ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : null}
                         <span>2) Pick a hypothesis</span>
                       </div>
-                      <div className="mt-1 text-xs">We’ll summarize known problems and let you choose a test.</div>
+                      <div className="mt-1 text-xs">We'll summarize known problems and let you choose a test.</div>
                     </div>
 
                     <div className="rounded-3xl border bg-white p-4">
