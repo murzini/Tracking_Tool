@@ -22,7 +22,7 @@ A heatmap product on a Next.js sandbox (Shop). It records visitor behaviour on t
   - **Removed:** density + fold-line overlays, the whole `?style=` toggle (`StyleLink`/`hasStyleChoice`/`readLayerStyle`), the temp `?nv=` code, and the three sim pages + `.sim-shots/`.
   - Full detail: `PRODUCT_OVERVIEW.md` → M4 Part 8 + `ARCHITECTURE_OVERVIEW.md` → M4 Part 8 (PORT STATUS).
 - **Tests:** 53/53 green via the isolated runner. Rendering Tests 39/40/43 rewritten for the single-style views + hardened so a stray funnel bounce can't flake them (find the session by its events, not by count).
-- **NOT committed yet:** all Chunk A–F code + these doc updates are uncommitted, by request — commit once manually tested.
+- **Committed (2026-05-25):** the full project baseline (M1–M4 + Part 8 port + docs) is committed on branch `chore/shop-tech-debt-clean` (commit `193e4c9`) — **local only, not pushed**. `test-results/` + `.claude/settings.local.json` are git-ignored. Was previously uncommitted; this was the first commit capturing the heatmap feature.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED ("left, not finalized, may return within X"). See `DATA.md` → `exit_reason`.
 
 ## Next action
