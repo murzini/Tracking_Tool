@@ -13,6 +13,15 @@
 | **AGENT_RUN_LOG.csv** | Audit trail. One row per agent run: date, time (24h local, when the run finished), agent name, status, and summary. Never edited or deleted. |
 | **README.md** *(repo root)* | Setup instructions, environment variables, heatmap API routes, and test run commands. Lives in repo root for GitHub display. |
 
+## Current state (at a glance)
+
+*Quick orientation so the live state isn't buried in the decision log below. For session-to-session continuity, see the repo-root `onboarding.md`.*
+
+- **Active milestone: M4 — Extended Interaction Capture.** Parts 1–7 done; the Part 8 rendering port (Chunks A–F) is done and the suite is **53/53 green**. Remaining to close M4: the doc-trim pass, the **2 critical tech-debt items** (event-delivery reliability, event-volume vs the free tier), and the close gates (`milestone-doc-review`, tech-debt review, agent review, `milestone-prereqs` → READY). Full detail: the **M4** subsection under Future Milestones.
+- **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
+- **Where things live in this doc:** active product scope → the **M4** section; settled per-milestone decisions → the **M1–M3** sections (history, marked `STATUS: CLOSED`); cross-cutting debt → the **Tech Debt** register; not-yet-started work → **Future Milestones** M5–M8; speculative ideas → **Potential post-MVP items**.
+- **This is an append-only decision log** — later dated notes can supersede earlier ones in place. When two notes seem to conflict, the most recent dated note and the current code win.
+
 ## Current Shop
 The current Shop is a standalone Next.js sandbox that simulates the landing, search, details, checkout, and thank-you flow. It is our controlled test environment where we will build and validate this product before moving toward broader usage.
 

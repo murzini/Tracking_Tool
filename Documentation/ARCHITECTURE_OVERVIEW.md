@@ -23,41 +23,38 @@ Current implemented focus:
 
 ## High-level architecture
 
-The current M1 architecture has five main parts:
+The architecture has five main parts. (M1 introduced them on the Personal Information step; M2 extended capture/render to all three checkout steps, M3 moved storage to Postgres, and M4 added the rich event set + batched transport.)
 
 1. UI flow
 - The Shop sandbox renders the landing, search, details, checkout, and thank-you flow.
-- M1 behavior is attached only to the Personal Information checkout step.
+- Capture is attached to all three checkout steps (`personal-info`, `delivery`, `pay`).
 
 2. Client-side interaction capture
-- The browser tracks Personal Information session lifecycle and user interactions.
-- It detects drop-off candidates using the configured inactivity threshold.
-- While a session is active, temporary session state is kept in browser storage.
+- The browser tracks each step's session lifecycle and interactions — clicks/taps, mouse-move (desktop) / finger-move (mobile), scroll depth, field focus/blur/change, validation-error-shown, and element visibility.
+- It detects drop-off via the inactivity threshold, records zero-interaction bounces, and resumes a session if the visitor returns within window X.
+- Events are buffered in a client ring buffer and flushed (interval / size / `sendBeacon` on unload) to the batched ingest endpoint; a visitor-level sampling gate (cookie) can switch capture off entirely.
 
-3. Server-side finalized session storage
-- Once a drop-off session is finalized, it is persisted through an API route.
-- Finalized M1 heatmap history is durable at the sandbox level and no longer depends only on browser-local storage.
+3. Server-side storage
+- Sessions + events are persisted in Neon Postgres through the API.
+- Finalize is lazy/derived (a sweep endpoint marks stale unfinalized sessions `abandoned`), since there is no always-on runtime.
 
 4. Heatmap aggregation and rendering
-- The dedicated heatmap route reads persisted finalized sessions.
-- Each stored click carries an anchor: the id of the nearest `data-heatmap-id` element and an (dx, dy) offset from its center.
-- At render time the system resolves each anchor id to its current DOM element and places the dot at element center + (dx, dy).
-- This makes dot positions stable across layout shifts (validation errors, accordion state, viewport differences).
-- Dots are rendered on top of a fully-expanded preview of the Personal Information step.
+- The dedicated heatmap route reads persisted sessions, filtered by `?step=` and view.
+- Each stored click carries an anchor: the id of the nearest tracked element and an (dx, dy) offset from its center; at render time the anchor resolves to the current DOM element and the dot lands at element center + (dx, dy) — so positions stay stable across layout shifts (validation errors, accordion state, viewport differences).
+- Three views over a fully-expanded preview of the selected step: click dots (opacity-by-count), mouse-move trails, and scroll colour-by-depth.
 
 5. Automated verification
-- Playwright-based M1 regression tests verify the key heatmap behaviors.
-- Tests are part of milestone completion requirements.
+- Playwright regression tests verify the key behaviors and are part of milestone completion requirements.
 
 ## Current data flow
 
-### Personal Information tracking flow
+### Checkout-step tracking flow
 
-1. User opens the Personal Information step.
-2. A new active session starts in the browser.
-3. Interactions update the active session and raw clicks are collected.
-4. If the user becomes inactive for the configured threshold after at least one click, the session is finalized.
-5. The finalized session is sent to the heatmap API and persisted.
+1. The visitor opens a checkout step (`personal-info`, `delivery`, or `pay`); the active step is passed explicitly to the capture client.
+2. A session starts — or resumes, if the visitor returned within window X; the sampling gate decides whether capture runs at all.
+3. Interactions append to a client ring buffer (clicks, mouse/finger movement, scroll depth, field events, validation errors, visibility) and flush in batches to the ingest endpoint.
+4. Completing the step marks the session `advanced`/`completed`; inactivity past the threshold — or a zero-interaction exit — is a drop-off.
+5. Finalize is lazy/derived: a sweep marks stale unfinalized sessions `abandoned` with an exit reason. Persisted sessions live in Postgres.
 
 ### Heatmap rendering flow
 
@@ -66,9 +63,9 @@ The current M1 architecture has five main parts:
 3. The route selects the requested step (`personal-info` | `delivery` | `pay`) and view (`desktop_view` | `mobile_view`).
 4. The preview renders the requested step directly inside `ShopFrame` with CSS overrides injected for the selected view. On mobile, a `<style>` tag constrains the layout to the most-common recorded viewport width.
 5. Persisted sessions are read from the heatmap API and filtered to the requested step + view.
-6. Each click's anchor id is resolved to its current DOM element; the dot is placed at element center + (dx, dy) offset.
-7. Dot radius scales by click count: max count → 24px, others proportional, bounded to [6px, 24px].
-8. Fixed-position elements (e.g. the chatbot icon) produce a separate set of dots rendered in a `position: fixed` overlay, distinct from surface-relative dots.
+6. The active view is chosen by the type toggle — **clicks** (default), **mouse moves**, or **scrolls** — each filtering `session.events` by type. Clicks is the default so the click-precision tests stay valid.
+7. **Clicks:** each click's anchor id resolves to its current DOM element; the dot is placed at element center + (dx, dy). Dot radius scales by click count (max → 24px, proportional, bounded [6px, 24px]) and dot opacity scales with count (Part 8). Fixed-position elements (e.g. the chatbot icon, desktop order-summary sidebar) produce a separate set of dots in a `position: fixed` overlay.
+8. **Mouse moves:** one translucent path per session (volume-aware stroke alpha). **Scrolls:** a green colour-by-depth tint (alpha by % of sessions reaching each depth) with an inline "<n>% saw it" legend. Both render in the same shop-content surface as the dots.
 
 ## Main runtime boundaries
 
@@ -166,15 +163,13 @@ Important current configurable rules include:
 
 These values must remain explicit because they are likely to evolve across milestones or future integrations.
 
-## Current M1-specific behavior
+## Scope history — M1 limits now lifted
 
-The following behaviors are intentionally milestone-specific:
-- tracking scope limited to Personal Information
-- only drop-off sessions persisted
-- heatmap visualized only as click dots with radius intensity
-- aggregation across all backpacks for the Personal Information step only
-
-These rules may expand or change in later milestones and should not be mistaken for permanent product-wide architecture.
+These were intentional M1-only limits; later milestones expanded each. Recorded so any lingering M1 framing elsewhere isn't mistaken for current behavior:
+- **Tracking scope:** M1 = Personal Information only → **now all three steps** (`personal-info`, `delivery`, `pay`) — M2.
+- **Persisted sessions:** M1 = drop-offs only → **now all sessions**, each carrying an `outcome` (advanced/completed/abandoned/in-progress) — M3/M4.
+- **Visualization:** M1 = click dots with radius intensity → **now click dots (radius + opacity-by-count) + mouse-move trails + scroll colour-by-depth** — M4.
+- **Aggregation:** M1 = Personal Information across all backpacks → **now per-step**, aggregated across backpacks — M2.
 
 ## Current durable architecture candidates
 

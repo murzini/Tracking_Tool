@@ -12,120 +12,47 @@ The goal is not to design full production integration early. The goal is to keep
 - Integration into external products is a later-stage goal, not current milestone scope.
 - We should prepare for integration lightly and deliberately, without over-engineering unstable flows.
 
-## What must be documented as the product evolves
+## What to keep documented
 
-### 1. Stable data models
+Keep the integration-facing essentials explicit — concrete current values live in the sections below and in `Documentation/DATA.md`:
 
-Document any data shape that may later be consumed outside the sandbox, including:
-- captured session shape
-- captured click/event shape
-- heatmap aggregation shape
-- view classification values
-- stored metadata such as viewport dimensions and timestamps
+- **Stable data models** — session + event shapes, aggregation shape, view values, metadata. For each: field names, meaning, required/optional, accepted values, and whether it is milestone-specific or durable.
+- **API contracts** — route, method, purpose, request/response shape, error behavior, and whether the contract is stable / provisional / milestone-only.
+- **Configurable business rules** — current default, why it exists, and whether it is expected to vary (inactivity threshold, tracked interaction types, drop-off definition, view breakpoints, radius bounds, screen inclusion).
+- **Integration seams** — keep the capture / storage / aggregation / rendering / UI-only-sandbox boundaries distinct, so core logic is reusable without inheriting sandbox-specific code.
+- **Naming & evolution** — avoid needless renames, prefer additive changes, document breaking changes, and record milestone context for temporary fields. Define a versioning/migration policy here if it becomes relevant.
 
-For each important data model, keep the following explicit:
-- field names
-- field meaning
-- required vs optional status
-- accepted values
-- whether the field is milestone-specific or intended to survive into later integration
+**Not yet:** no heavy production integration architecture, no enterprise API docs for unstable flows, no premature abstraction, and no optimizing for unknown target systems before real integration constraints are known.
 
-### 2. API contracts
+## Integration-ready state — baseline (M1–M2)
 
-Document any API endpoint that may become part of a durable internal or external integration boundary.
+The core integration-facing facts established by M1–M2. M3 (Postgres + query API) and M4 (rich events, outcomes, batched ingest, sampling) extended these — see the M3 section below and `Documentation/DATA.md`.
 
-For each relevant endpoint, capture:
-- route
-- method
-- purpose
-- request shape
-- response shape
-- error behavior
-- whether the contract is stable, provisional, or milestone-only
+### Data concepts (baseline)
 
-Current M1 example contracts that should be tracked:
-- heatmap store read
-- heatmap session append
-- heatmap clear-data flow
-
-### 3. Configurable business rules
-
-Any rule that may change across products, markets, or future milestones should be treated as configurable and documented as such.
-
-Examples:
-- inactivity threshold
-- tracked interaction types
-- drop-off definition
-- view breakpoints
-- heatmap radius bounds
-- screen inclusion/exclusion rules
-
-For each configurable rule, document:
-- current default
-- why it exists
-- whether it is expected to vary later
-
-### 4. Integration seams
-
-Keep clear boundaries between:
-- capture logic
-- storage logic
-- aggregation logic
-- rendering logic
-- UI-only sandbox behavior
-
-These boundaries should stay understandable so later external products can reuse core logic without inheriting unnecessary sandbox-specific implementation.
-
-### 5. Naming and evolution rules
-
-When integration-facing data or APIs evolve:
-- avoid unnecessary field renames
-- prefer additive changes where possible
-- document breaking changes explicitly
-- record milestone context when a field or contract is temporary
-
-If schema migration or versioning becomes relevant, this document should be expanded to define that policy explicitly.
-
-## What we should not do yet
-
-- Do not create heavy production integration architecture before the POC proves out.
-- Do not create full enterprise API documentation for unstable flows.
-- Do not abstract every sandbox behavior prematurely.
-- Do not optimize for unknown target systems before real integration constraints are known.
-
-## M1 integration-ready state
-
-M1 does not require production integration design, but the following facts should now be considered explicit:
-
-### Current M1 data concepts
-
-- Each opening of a checkout step is treated as a new session (M2: any of `personal-info`, `delivery`, `pay`; sessions carry the `step`).
-- Only drop-off sessions are persisted.
-- A drop-off requires at least one interaction, then inactivity for the configured threshold.
-- Clicks are stored as element-anchor offsets: `{ anchor: { id, dx, dy } }` where `id` is the stable identifier of the nearest tracked UI element. For clicks directly on an element, `dx` and `dy` are `0` (dot snaps to element center). For free-space clicks, `dx`/`dy` capture the offset from the nearest element's center. This replaces the earlier raw-pixel approach.
-- Each click also carries element metadata at capture time: `label`, `role`, `tagName`, `field name`, and click offset within the element. This is the foundation for future engagement reporting — grouping interactions by checkout element rather than by pixel position.
-- The element registry (`CHECKOUT_ELEMENT_REGISTRY`) is an auto-maintained scanner snapshot covering all checkout steps. Each entry has a stable `id`, `type`, `label`, a `steps` list (which steps it renders on), and an `addedAt`/`removedAt` lifecycle. Registry entries are never deleted — removed elements are marked with `removedAt`. Only tagged anchors are recorded; untagged elements are resolved live by the scanner.
+- Each opening of a checkout step is treated as a new session (any of `personal-info`, `delivery`, `pay`; sessions carry the `step`). *(M4 refines this: a return within window X resumes the same session — see "Session resume and external re-entry".)*
+- M1–M2 persisted only drop-off sessions. **M4 now records all sessions**, each tagged with an `outcome` (`advanced` / `completed` / `abandoned` / `in-progress`) so completers can be compared against non-completers — see the M3/M4 notes and `DATA.md`.
+- A drop-off requires at least one interaction, then inactivity for the configured threshold. *(M4 also records zero-interaction bounces.)*
+- Clicks are stored as element-anchor offsets: `{ anchor: { id, dx, dy } }` where `id` is the stable identifier of the nearest tracked UI element. For clicks directly on an element, `dx`/`dy` are `0` (dot snaps to element center); for free-space clicks they capture the offset from the nearest element's center. This replaced the earlier raw-pixel approach.
+- Each click also carries element metadata at capture time: `label`, `role`, `tagName`, `field name`, and click offset within the element — the foundation for future engagement reporting (grouping interactions by checkout element rather than by pixel position).
+- The element registry (`CHECKOUT_ELEMENT_REGISTRY`) is an auto-maintained scanner snapshot covering all checkout steps. Each entry has a stable `id`, `type`, `label`, a `steps` list, and an `addedAt`/`removedAt` lifecycle. Entries are never deleted — removed elements are marked with `removedAt`. Only tagged anchors are recorded; untagged elements are resolved live by the scanner.
 - At render time, anchor ids are resolved to live DOM elements via `data-heatmap-id` attributes.
-- Heatmaps are separated by `desktop_view` and `mobile_view`.
-- Heatmaps aggregate across all backpacks, per checkout step (filtered by `step` + `view`).
+- Heatmaps are separated by `desktop_view` and `mobile_view`, and aggregate across all backpacks per checkout step (filtered by `step` + `view`).
 
-### Current M1 configurable rules
+### Configurable rules (baseline)
 
-- Default inactivity threshold: `30000ms`
+- Default inactivity threshold: `30000ms`.
 - Default automation (test) inactivity threshold: `2000ms` (activated via `m1HeatmapTest=1` query param or `overrideMs`).
-- Radius bounds: `6px` minimum, `24px` maximum
-- View classification breakpoint currently derives from the desktop breakpoint in the Shop UI
+- Radius bounds: `6px` minimum, `24px` maximum.
+- View classification breakpoint currently derives from the desktop breakpoint in the Shop UI.
 
-### Current M1 durable API boundary candidates
+### Durable API boundary candidates
 
-- `GET /api/checkout-heatmap`
-  - Purpose: read persisted finalized M1 heatmap sessions
-- `POST /api/checkout-heatmap`
-  - Purpose: append one finalized M1 drop-off session
-- `DELETE /api/checkout-heatmap`
-  - Purpose: clear persisted M1 heatmap history
+- `GET /api/checkout-heatmap` — read persisted heatmap sessions.
+- `POST /api/checkout-heatmap` — append one finalized drop-off session. *(Kept for back-compat; since M4 Part 2 the client writes via `/ingest` instead — see M3/M4 contracts below.)*
+- `DELETE /api/checkout-heatmap` — clear persisted heatmap history.
 
-These are still POC-level contracts and may evolve, but they should now be tracked here when changed.
+These are still POC-level contracts and may evolve, but they should be tracked here when changed.
 
 ## M3 integration-ready state
 
