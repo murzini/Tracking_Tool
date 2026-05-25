@@ -291,7 +291,8 @@ function CheckoutHeatmapContent() {
               onBackToDetails={() => {}}
               onFinish={() => {}}
               heatmapMode={true}
-              showPersonalInfoValidation={selectedStep === "personal-info"}
+              forceExpandedLayout={selectedType === "clicks"}
+              showPersonalInfoValidation={selectedStep === "personal-info" && selectedType === "clicks"}
             />
           )}
         </div>
@@ -493,17 +494,23 @@ function buildAnchorAwarePoints(sessions) {
     }
   }
 
-  const scaleGroup = (buckets) => {
-    const pts = Array.from(buckets.values());
-    const maxCount = pts.reduce((max, p) => Math.max(max, p.count), 0);
-    return pts.map((p) => ({
+  const scaleGroup = (buckets, maxCount) => {
+    return Array.from(buckets.values()).map((p) => ({
       ...p,
       radius: scaleCheckoutHeatmapRadius(p.count, maxCount),
       alpha: clickDotAlpha(p.count, maxCount),
     }));
   };
 
-  return { surface: scaleGroup(surfaceBuckets), fixed: scaleGroup(fixedBuckets) };
+  // One shared scale for the whole step: size and opacity are relative to the
+  // busiest dot anywhere on screen (surface + fixed together), so a dot with more
+  // clicks always reads hotter than one with fewer — across both groups.
+  const maxCount = [...surfaceBuckets.values(), ...fixedBuckets.values()].reduce(
+    (max, p) => Math.max(max, p.count),
+    0
+  );
+
+  return { surface: scaleGroup(surfaceBuckets, maxCount), fixed: scaleGroup(fixedBuckets, maxCount) };
 }
 
 function resolveAnchorPoint(click, anchorIndex) {

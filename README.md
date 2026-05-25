@@ -54,6 +54,7 @@ All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor beh
 - `POST /api/checkout-heatmap/ingest` — batched ingestion; body `{ session, events[] }`. The capture client streams events here (interval/size flush + `sendBeacon` on unload) instead of a finalize-only POST
 - `GET /api/checkout-heatmap/query?step=&view=&from=&to=` — read-only query, filtered by step / view / timeframe
 - `POST /api/checkout-heatmap/cleanup` — TTL/archival cleanup; body `{ before }` (ISO cutoff) or `{ ttlDays }` (default 30)
+- `POST /api/checkout-heatmap/sweep` — lazy/derived finalize; marks stale unfinalized sessions `abandoned` after the grace window; body `{ now?, force? }` (tests/manual checks pass `force: true` to skip the age check)
 - `GET /api/db-status` — DB connectivity / schema inspection
 
 ## Running tests

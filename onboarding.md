@@ -13,26 +13,28 @@ A heatmap product on a Next.js sandbox (Shop). It records visitor behaviour on t
 ## Current state
 
 - **M1, M2, M3** — COMPLETE and signed off.
-- **M4 — Extended Interaction Capture** — IN PROGRESS. Scope FROZEN. **Parts 1–7 done. Part 8 port (Chunks A–F) DONE (2026-05-25) — suite 53/53 green.**
-- **Part 8 rendering is now implemented** (in `app/checkout/[sku]/heatmap/page.jsx`; click dots also in `components/prototype/shopRuntime.js`; note slot in `components/prototype/TopBar.jsx`):
-  - **Clicks** = precise per-element dots, red **alpha by count** (`clickDotAlpha`, 0.2→0.8). Positions/radius unchanged → 10px precision tests still valid.
-  - **Mouse-move** = **trails** at a **volume-aware** stroke alpha (`trailStrokeAlpha`: ~0.5 at low volume → ~0.06 at ~1000 trails).
-  - **Scroll** = **green** colour-by-depth translucent tint + inline "<n>% saw it" legend.
-  - **Floating-elements note** (moves view): yellow, ~30% smaller, right of the shop logo, via an optional `ShopFrame`/`TopBar` slot the heatmap page fills (live shop untouched). Desktop vs mobile wording; mobile stacks below the finger disclaimer.
-  - **Removed:** density + fold-line overlays, the whole `?style=` toggle (`StyleLink`/`hasStyleChoice`/`readLayerStyle`), the temp `?nv=` code, and the three sim pages + `.sim-shots/`.
-  - Full detail: `PRODUCT_OVERVIEW.md` → M4 Part 8 + `ARCHITECTURE_OVERVIEW.md` → M4 Part 8 (PORT STATUS).
-- **Tests:** 53/53 green via the isolated runner. Rendering Tests 39/40/43 rewritten for the single-style views + hardened so a stray funnel bounce can't flake them (find the session by its events, not by count).
-- **Committed (2026-05-25):** the full project baseline (M1–M4 + Part 8 port + docs) is committed on branch `chore/shop-tech-debt-clean` (commit `193e4c9`) — **local only, not pushed**. `test-results/` + `.claude/settings.local.json` are git-ignored. Was previously uncommitted; this was the first commit capturing the heatmap feature.
+- **M4 — Extended Interaction Capture** — IN PROGRESS, scope FROZEN. Parts 1–8 done. Part 8 rendering: clicks opacity-by-count, mouse-move trails (volume-aware alpha), scroll green tint + "<n>% saw it" legend; density/fold-line/`?style=` toggle removed. Detail: `PRODUCT_OVERVIEW.md` + `ARCHITECTURE_OVERVIEW.md` → M4 Part 8.
+- **This session (2026-05-25) — three manual-check fixes, ALL UNCOMMITTED:**
+  1. **Click dots — one shared screen-wide scale.** Was scaled per-group (surface vs `position:fixed`), so equal-looking dots could have very different counts. Now a single `maxCount` across both groups drives size + opacity (`buildAnchorAwarePoints` in `app/checkout/[sku]/heatmap/page.jsx`).
+  2. **Mouse-move/scroll views now render in the capture-time layout** (validation off + accordions collapsed) so trails line up with the elements; the clicks view stays fully expanded (needs error anchors). New `forceExpandedLayout` prop on `CheckoutFlow.jsx`, wired from the heatmap page. Tests 39/40 assert it.
+  3. **Session-merge bug — DIAGNOSED, DEFERRED TO M5 (its first task).** Repeated visits to the same step+sku merge into one ever-living `in-progress` session (heatmap/DB show only 1). Cause: passive events refresh the resume/idle clock so the session never idles out → every return resumes. A partial change is **kept** (visibility no longer counts as activity — `recordSessionEvent(..., {resetActivity:false})`) but is **insufficient** — another passive source remains. Repro = **Test 44** (`test.fixme`). Full diagnosis + fix plan: `PRODUCT_OVERVIEW.md` → M5 scope.
+- **Tests:** suite re-run 2026-05-26 → **52 passed, 2 `test.fixme` (skipped), 0 failed.** Test 44 (session-merge) and Test 36 (zero-interaction bounce) are both `test.fixme` — deferred to M5. Green baseline is now 52/52 active tests.
+- **Git:** prior commits on branch `chore/shop-tech-debt-clean` (`193e4c9` … `d63ed94`, local only, not pushed). **This session's changes are ALL UNCOMMITTED — working tree is DIRTY.** Touched: `heatmap/page.jsx`, `CheckoutFlow.jsx`, `checkoutHeatmapClient.js`, `tests/e2e/m4-rendering.spec.ts`, `tests/e2e/m4-session-signals.spec.ts`, `PRODUCT_OVERVIEW.md`, `ARCHITECTURE_OVERVIEW.md`, `TEST_CASES.md`, this file, and a `milestone-prereqs` GAPS-OPEN line in `AGENT_RUN_LOG.csv`.
+- **Deferred to M5** (see `PRODUCT_OVERVIEW.md` → M5 scope): (1) the session-merge fix — **first task** (also enables Test 44 + Test 36); (2) a **model-selector helper agent** (recommends Opus/Sonnet/Haiku by task; scope + tiers TBD).
+- **Still deferred to the user:** the `PRODUCT_OVERVIEW.md` structural split.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED ("left, not finalized, may return within X"). See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**M4 close — the Part 8 rendering port (Chunks A–F) is done and the suite is 53/53.** What remains, in order:
+**Finish the M4 close.** The session-merge bug is now out of M4 scope (moved to M5), so it no longer blocks. Do these in order:
 
-- **Doc-trim pass (structural — NOT done yet).** `ARCHITECTURE_OVERVIEW.md` → M4 Part 8 lists the fixes: reorder `DATA.md` so the live Postgres schema leads (demote the M1 JSON schema to a historical appendix); reframe the M1-era sections in `ARCHITECTURE_OVERVIEW.md` + `FUTURE_THIRD_PARTY_INTEGRATION.md`; split active scope from settled-decision history in `PRODUCT_OVERVIEW.md`. (`milestone-doc-review` catches only factual gaps, not structure — do this pass first.)
-- **2 critical tech-debt items (must close before M4).** Event-delivery reliability (no dropped events on tab close / nav) + event-volume vs the Neon free tier. See `PRODUCT_OVERVIEW.md` → Tech Debt → Critical.
-- **Close gates.** `milestone-doc-review`, tech-debt review, `FUTURE_THIRD_PARTY_INTEGRATION.md` + `DATA.md` review, agent review, then `milestone-prereqs` → READY.
-- **Commit.** Chunks A–F + the doc updates are uncommitted by request — commit once the user has manually tested the ported heatmap.
+- ~~**Re-run the suite**~~ **DONE (2026-05-26) — 52/52 green. Tests 36 + 44 are `test.fixme` (deferred to M5).**
+- **Re-run `milestone-doc-review`** — code changed since its last run (the earlier GAPS-FIXED is stale).
+- **Commit** all this session's work (code + tests + docs) — the milestone restore point. Commit by explicit path; never `.env.local` or `test-results/`.
+- **Re-run `milestone-prereqs` → READY**, log it in `AGENT_RUN_LOG.csv`, then declare M4 complete (report the agent + tech-debt review explicitly). The earlier GAPS-OPEN run is stale.
+- **Optional:** eyeball the three fixes (click scale, trail alignment, scroll tint); decide whether to keep or revert the partial visibility change.
+
+**Then M5 starts with the session-merge bug fix (first task), then the model-selector agent — both specced in `PRODUCT_OVERVIEW.md` → M5 scope.**
 
 ## What to read first, in order
 

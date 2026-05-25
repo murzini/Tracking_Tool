@@ -115,7 +115,12 @@ export function CheckoutFlow({
   onDone,
   showPersonalInfoValidation = false,
   heatmapMode = false,
+  forceExpandedLayout = true,
 }) {
+  // Forced-open panels/accordions lengthen the form for click-anchor coverage.
+  // Mouse-move/scroll views turn this off so the layout matches what visitors
+  // saw at capture, since those overlays use absolute (un-anchored) coordinates.
+  const expandedLayout = heatmapMode && forceExpandedLayout;
   const finish = onDone || onFinish;
   const setStageStep = setStep || onStep;
   const requiredPersonalInfoFields = ["fullName", "birthdate", "phoneCode", "phone", "street", "houseNumber", "zip"];
@@ -156,8 +161,8 @@ export function CheckoutFlow({
   const [activeField, setActiveField] = useState(null);
 
   // Mobile: show/hide order summary instead of forcing a two-column layout.
-  const [showSummary, setShowSummary] = useState(heatmapMode);
-  const [showBirthdateHelp, setShowBirthdateHelp] = useState(heatmapMode);
+  const [showSummary, setShowSummary] = useState(expandedLayout);
+  const [showBirthdateHelp, setShowBirthdateHelp] = useState(expandedLayout);
 
   const deliveryFee =
     delivery === "novaPoshta" ? FEES.novaPoshta : delivery === "courierKyiv" ? FEES.courierKyiv : FEES.pickup;
@@ -726,7 +731,7 @@ export function CheckoutFlow({
                     </div>
                   </button>
 
-                  <Accordion type="single" collapsible forceAllOpen={heatmapMode} className="space-y-0 overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white">
+                  <Accordion type="single" collapsible forceAllOpen={expandedLayout} className="space-y-0 overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white">
                     {[
                       {
                         value: "price",
@@ -957,7 +962,7 @@ export function CheckoutFlow({
                     </div>
                   </SelectableRow>
 
-                  {payment === "card" || heatmapMode ? (
+                  {payment === "card" || expandedLayout ? (
                     <div className="rounded-3xl border bg-white px-6 py-5">
                       <div className="grid gap-3">
                         <StickyInput id="card_number"
@@ -1046,7 +1051,7 @@ export function CheckoutFlow({
                     </div>
                   </SelectableRow>
 
-                  {payment === "wire" || heatmapMode ? (
+                  {payment === "wire" || expandedLayout ? (
                     <div className="rounded-3xl border bg-white px-6 py-5">
                       <div className="text-xs text-muted-foreground">Email address</div>
                       <StickyInput id="wire_email"

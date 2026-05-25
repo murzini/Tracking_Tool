@@ -102,6 +102,8 @@ test("Test 39 — mouse-move heatmap renders trails; default view stays on click
   await openHeatmap(page, "");
   await expect(page.locator('[data-heatmap-layer="mouse-moves"]')).toHaveCount(0);
   await expect(page.locator("[data-heatmap-style-toggle]")).toHaveCount(0);
+  // The clicks view forces the expanded layout (validation on) so error-clicks anchor.
+  await expect(page.getByText("Required field").first(), "clicks view forces the validation errors").toBeVisible();
 
   // Switch to mouse moves via the type toggle → trails render directly (one style).
   await page.getByRole("link", { name: "See mouse moves" }).click();
@@ -112,6 +114,9 @@ test("Test 39 — mouse-move heatmap renders trails; default view stays on click
   await expect(trails.locator("polyline").first(), "trails overlay must draw a path").toBeVisible();
   // The dropped density style must not render.
   await expect(page.locator('[data-heatmap-style="density"]'), "density style is dropped").toHaveCount(0);
+  // Capture-time layout: the moves view must NOT force the validation errors, so
+  // trails align with the shorter layout visitors actually moved against.
+  await expect(page.getByText("Required field"), "moves view renders the capture-time layout — no forced validation").toHaveCount(0);
 });
 
 // ─── Test 40 — scroll rendering + toggle ──────────────────────────────────────
@@ -147,6 +152,9 @@ test("Test 40 — scroll heatmap renders the green colour-by-depth gradient with
 
   // The dropped fold-line style must not render.
   await expect(page.locator('[data-heatmap-style="fold"]'), "fold-line style is dropped").toHaveCount(0);
+
+  // Capture-time layout: the scrolls view must NOT force the validation errors.
+  await expect(page.getByText("Required field"), "scrolls view renders the capture-time layout — no forced validation").toHaveCount(0);
 });
 
 // ─── Test 43 — mobile finger-movement render + disclaimer ─────────────────────

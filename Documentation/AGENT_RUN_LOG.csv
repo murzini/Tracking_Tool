@@ -22,3 +22,5 @@ Date,Time,Agent,Status,Summary
 5/22/2026,17:30,milestone-test-planning,OK,"M4 plan: keep 16, update 4 (Test 1 zero-interaction, Test 20 type filter, batched-transport reverify), remove 0, +13 new (Tests 28-40). 2 open items flagged."
 5/22/2026,17:35,milestone-start,OK,"M4 READY: all 7 prereqs met - M3 closed, scope frozen+specified, inherited+anticipated tech debt recorded, arch/7-part plan + test plan documented."
 5/25/2026,14:38,milestone-doc-review,GAPS-FIXED,"M4 close: README stale (48->53 tests, thirteen->fourteen specs, +m4-rendering.spec.ts; heatmap section now lists 3 views). Undocumented tech-debt scan clean. Other core docs current (just doc-trimmed)."
+5/25/2026,15:04,milestone-prereqs,GAPS-OPEN,"M4: 8/9 MET. Only gap: finalize commit (onboarding.md uncommitted). 53/53 green; TEST/ARCH/DATA/FUTURE+agents+tech-debt all reviewed, no open critical."
+2026-05-26,10:30,milestone-doc-review,GAPS-FIXED,"5 gaps fixed: suite count stale (53→52+2fixme) in PRODUCT_OVERVIEW/TEST_CASES/ARCH; ARCH missing m4-rendering.spec.ts + mobile-moves description; README missing /sweep route."
