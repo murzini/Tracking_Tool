@@ -44,6 +44,7 @@ Two tables. A click is an event of `type: "click"` — the original M1 `clicks[]
 | `sampling_rate` | NUMERIC | effective rate (external × internal %) — written M4 |
 | `step_active_ms` | INTEGER | active time on step — written M4 |
 | `step_idle_ms` | INTEGER | idle time on step — written M4 |
+| `visitor_id` | TEXT | UUID minted on login Continue, stored in localStorage; links all sessions from the same visitor across steps — written M5 |
 | `created_at` | TIMESTAMPTZ | default NOW() |
 
 Indexes: `step`, `view`, `started_at DESC`, `(step, view)`, `created_at DESC`, `outcome` (partial, WHERE NOT NULL).

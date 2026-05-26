@@ -37,22 +37,20 @@ See `CLAUDE.md` → "Model selection" for the full rule.
   - **M5 architecture + 3-part implementation plan — documented (2026-05-26).** In `ARCHITECTURE_OVERVIEW.md` → M5.
   - **milestone-test-planning — OK (2026-05-26 19:38).** Keep 7, update ~47 (login step in full-flow helpers), remove 0, +4 new (Tests 45–48). Logged in `AGENT_RUN_LOG.csv`.
   - **milestone-start — READY (2026-05-26 19:42).** All 7 prerequisites met. Logged in `AGENT_RUN_LOG.csv`.
+  - **Part 2 — Visitor ID + session attribution + login gate — DONE (2026-05-26).** `checkoutVisitorId.js` added (`mintVisitorId` / `getVisitorId` / `isLoginDone`). `mintVisitorId()` called on login Continue (sets UUID in localStorage + sessionStorage gate). `resolveStep` blocks non-login steps if gate absent. `visitor_id` attached to every session payload via `checkoutHeatmapClient`, written to DB via `ingestCheckoutHeatmapBatch` (COALESCE — first non-null wins), round-tripped through `normalizeCheckoutHeatmapSession` and `rowToSession`. `DATA.md` updated.
   - **Part 1 — Schema migration + login step UI — DONE (2026-05-26).** `visitor_id TEXT` column added to both `public` and `heatmap_test` via idempotent ALTER in `db-setup.mjs`. Login step renders in `CheckoutFlow.jsx` (name required, password optional, CTA "Continue"); excluded from step nav; `?step=login` is the new checkout default (`resolveStep`); heatmap capture disabled on login step. Manual check passed: login screen on entry, PI/Delivery/Pay nav only, empty name blocked, valid name → Personal Information.
 - **Still deferred to the user:** the `PRODUCT_OVERVIEW.md` structural split.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Part 1 DONE — start Part 2.** Implementation plan in `ARCHITECTURE_OVERVIEW.md` → M5 → Implementation plan.
+**Parts 1 + 2 DONE — manual check Part 2, then start Part 3.** Implementation plan in `ARCHITECTURE_OVERVIEW.md` → M5 → Implementation plan.
 
-- **Part 2 — Visitor ID generation + session attribution.**
-  - New `lib/prototype/checkoutVisitorId.js`: `mintVisitorId()` generates UUID + writes to localStorage (`m1.heatmap.visitorId`); `getVisitorId()` reads it back.
-  - Wire `mintVisitorId()` into login Continue handler in `CheckoutFlow.jsx`.
-  - `checkoutHeatmapClient.js`: on init call `getVisitorId()` and attach to session payload.
-  - `checkoutHeatmapStore.server.js`: write `visitor_id` in `ingestCheckoutHeatmapBatch` (COALESCE-protected upsert).
-  - `checkoutHeatmap.js`: `normalizeCheckoutHeatmapSession` round-trips `visitor_id`.
-  - `DATA.md`: document new `visitor_id` column.
-  - Manual check: complete login → drop off on PI → inspect DB → session has `visitor_id`; second drop-off in same browser → same `visitor_id`; incognito login → different `visitor_id`.
+- **Part 2 manual check:**
+  - Complete login → drop off on PI → inspect DB → session row has `visitor_id` set
+  - Second drop-off in same browser without re-logging in → same `visitor_id`
+  - Open incognito, complete login → different `visitor_id`
+  - Navigate directly to `?step=personal-info` without login (new session/tab) → redirected to login
 - **Part 3 — Tests + close gates.** (after Part 2 manual check passes)
 - **Commit per part**, as recommended in `AGENTS.md` → Completion and testing.
 

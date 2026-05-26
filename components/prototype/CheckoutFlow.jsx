@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { mintVisitorId } from "../../lib/prototype/checkoutVisitorId";
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown, ChevronLeft, CircleAlert, CreditCard, Lock, ShieldCheck, Smartphone, Star, X } from "lucide-react";
 import { Button } from "../ui/button";
@@ -416,6 +417,7 @@ export function CheckoutFlow({
       setLoginNameError("Required field");
       return;
     }
+    mintVisitorId();
     go("personal-info");
   };
 

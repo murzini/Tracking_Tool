@@ -14,6 +14,7 @@ import {
   useTourState,
 } from "../../../components/prototype/shopRuntime";
 import { flushCheckoutHeatmapOutcome, useCheckoutHeatmapCapture } from "../../../lib/prototype/checkoutHeatmapClient";
+import { isLoginDone } from "../../../lib/prototype/checkoutVisitorId";
 import { fade } from "../../../lib/prototype/fade";
 
 // M4 Part 5: step order, so advancing to a later step records the step being left
@@ -24,6 +25,8 @@ const CHECKOUT_STEP_ORDER = ["personal-info", "delivery", "pay"];
 function resolveStep(searchParams) {
   const routeStep = searchParams.get("step");
   if (routeStep === "login") return "login";
+  // Gate: only allow checkout steps if the visitor completed login this session.
+  if (typeof window !== "undefined" && !isLoginDone()) return "login";
   if (routeStep === "personal-info") return "personal-info";
   if (routeStep === "delivery" || routeStep === "pay") return routeStep;
   if (routeStep === "payment") return "pay";
