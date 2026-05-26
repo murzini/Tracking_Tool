@@ -59,7 +59,8 @@ export function TopBar({ onGoHome, heatmapHref = "/checkout/001/heatmap", showM1
 
   return (
     <div className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur" data-heatmap-id="nav:header" data-heatmap-type="nav" data-heatmap-label="Header">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto max-w-6xl px-4">
+      <div className="flex items-center justify-between gap-3 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onGoHome}
@@ -74,7 +75,6 @@ export function TopBar({ onGoHome, heatmapHref = "/checkout/001/heatmap", showM1
               <div className="text-xs text-black/50">Student training prototype</div>
             </div>
           </button>
-          {note}
         </div>
 
         <div className="flex items-center gap-2">
@@ -127,6 +127,8 @@ export function TopBar({ onGoHome, heatmapHref = "/checkout/001/heatmap", showM1
             </div>
           ) : null}
         </div>
+      </div>
+      {note ? <div className="pb-2">{note}</div> : null}
       </div>
     </div>
   );

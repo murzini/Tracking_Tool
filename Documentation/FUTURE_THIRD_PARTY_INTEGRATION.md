@@ -193,8 +193,28 @@ Conceptually this is still "resume within X" — production simply uses a much *
 - The resume window X is a configurable rule (see below), expected to be large in production.
 
 ### Configurable rules (resume)
-- **Resume window `X`:** current default `30000ms` (normal) / `2000ms` (autotest). Exists so a brief leave/return is one session. Expected to be much larger in production (days/weeks) to support email/dashboard re-entry.
+- **Resume window `X`:** current default `30000ms` (normal) / `2000ms` (autotest). Exists so a brief leave/return is one session. Expected to be much larger in production (days/weeks, or even indefinite). **Indefinite X workaround:** set X to a very large value (e.g. ~100 years) — the session never expires by timeout alone. **Open tension (flagged 2026-05-26):** with indefinite X, the idle timeout no longer separates sessions naturally; a separate session-separation trigger will be needed (e.g. explicit "start new checkout" action or logout). Design deferred to M8.
 - **Finalize/abandon timing:** in the POC this equals X; in production it is a **separate, shorter** window so abandonment (and the drop-off email) can fire while the session stays reopenable. Built in M8.
+
+## M5 integration-ready state
+
+M5 introduces a login step that creates visitor identity. Integration-facing changes:
+
+### Visitor identity and attribution
+
+- **Visitor ID:** at login completion, a unique visitor ID is generated. This is NOT derived from the entered login name (cosmetic only in the POC). The visitor ID is the stable attribution key. A new ID is minted at every login completion — no reuse of a prior stored value.
+- **Session attribution:** all sessions from login onwards (personal-info, delivery, pay) are tagged with the visitor ID. This enables per-visitor analysis, cross-session attribution, and filtering in reporting (M7) and the admin dashboard (M6).
+- **POC storage:** the visitor ID is stored in localStorage. This survives tab close, which is required so resume-within-X retains attribution when the visitor briefly leaves and returns on the same device.
+- **localStorage is a POC stand-in only:** localStorage is per-device and per-browser — it cannot follow a visitor from desktop to mobile. In the real product (Autohero), visitor identity is resolved server-side from the authenticated account, making it cross-device. The POC design keeps the source of the visitor ID swappable: POC mints it locally; the real product injects the server-resolved identity. The downstream plumbing (tagging sessions with the ID) is identical in both cases.
+- **Credentials in POC vs real product:** in the POC, credentials are not validated — the login step is a placeholder UI. In the real product (Autohero), the host performs real authentication and the visitor ID maps to a real user identity. The attribution plumbing (visitor ID on sessions) must be integration-ready for this.
+- **Integration contract (M8):** the host product (Autohero) will need to supply the authenticated visitor identity after real login so the capture library stores the correct visitor ID. The exact handshake (JS callback, cookie, or redirect signal) is an M8 integration contract.
+- **Login step capture:** not tracked in the POC. Built as a real step in the flow so heatmap capture can be added cheaply at Autohero integration — same "cheap to add later" pattern as the thank-you page.
+- **visitor_id API exposure:** `visitor_id` is stored in the `sessions` DB table but NOT exposed via the query API in M5. Per-visitor outlier analysis in the POC is done via direct DB query. API exposure is deferred; when added it must be access-controlled (M6 auth gate).
+
+### Session resume with visitor identity (M5 update)
+
+- Resume-within-X applies to logged-in visitors. Login does not break resume — if a logged-in visitor leaves Personal Info and returns within X, the same session resumes with visitor attribution intact.
+- POC supports basic returns only (reload/reopen tab). Real product supports multiple external return paths — drop-off email link, "my orders" screen, and other host-defined paths (see "Session resume and external re-entry" above).
 
 ## Milestone maintenance rule
 

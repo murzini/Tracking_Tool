@@ -25,3 +25,8 @@ Date,Time,Agent,Status,Summary
 5/25/2026,15:04,milestone-prereqs,GAPS-OPEN,"M4: 8/9 MET. Only gap: finalize commit (onboarding.md uncommitted). 53/53 green; TEST/ARCH/DATA/FUTURE+agents+tech-debt all reviewed, no open critical."
 2026-05-26,10:30,milestone-doc-review,GAPS-FIXED,"5 gaps fixed: suite count stale (53→52+2fixme) in PRODUCT_OVERVIEW/TEST_CASES/ARCH; ARCH missing m4-rendering.spec.ts + mobile-moves description; README missing /sweep route."
 2026-05-26,01:39,milestone-prereqs,OK,"M4 READY: all 9 prereqs MET. 52/52 green + 2 fixme; docs/agents/tech-debt all reviewed; git clean. Close gates: doc-review GAPS-FIXED, no open critical."
+2026-05-26,13:23,milestone-start,GAPS-OPEN,"M5 NOT READY: 4 gaps — login-step spec missing (prereq 3), no anticipated tech debt (prereq 5), no arch/impl plan (prereq 6), no test plan logged (prereq 7)"
+2026-05-26,19:38,milestone-test-planning,OK,"M5 plan: keep 27, update 11 (login step in full-flow navigators), remove 0, +4 new tests (Tests 45-48) for login step + visitor_id attribution"
+2026-05-26,19:42,milestone-start,OK,"M5 READY: all 7 prereqs MET — M4 closed, scope frozen+specified, inherited+anticipated tech debt recorded, arch/3-part plan + test plan documented."
+2026-05-26,22:30,milestone-doc-review,GAPS-FIXED,"4 gaps fixed: ARCH M4/M5 status stale (IN PROGRESS→CLOSED); ARCH test layer missing m5 spec + stale fixme note; TEST_CASES M5 status stale; heatmap-qa.md wrong localStorage key (m1.visitor.id→m1.heatmap.visitorId)."
+2026-05-26,22:35,milestone-prereqs,GAPS-OPEN,"M5: 8/9 MET. Only gap: milestone code changes not yet committed (prereq 9). Commit required before READY."

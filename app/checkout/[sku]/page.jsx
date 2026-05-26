@@ -79,7 +79,13 @@ function CheckoutRouteContent() {
               if (CHECKOUT_STEP_ORDER.indexOf(nextStep) > CHECKOUT_STEP_ORDER.indexOf(step)) {
                 flushCheckoutHeatmapOutcome("advanced");
               }
-              router.push(getCheckoutHref(item.sku, nextStep, { isTour }));
+              // Forward test/automation params so login → PI stays one navigation.
+              const opts = { isTour };
+              if (searchParams.get("m1HeatmapTest") === "1") opts.m1HeatmapTest = true;
+              if (searchParams.get("m1HeatmapAnchor") === "1") opts.m1HeatmapAnchor = true;
+              const sampleRate = searchParams.get("heatmapSampleRate");
+              if (sampleRate != null) opts.heatmapSampleRate = sampleRate;
+              router.push(getCheckoutHref(item.sku, nextStep, opts));
             }}
             onBackToDetails={() => router.push(getDetailsHref(item.sku, { isTour, step: "details" }))}
             onFinish={() => {

@@ -331,14 +331,15 @@ function MovesNote({ isMobileView }) {
   return (
     <div
       data-heatmap-moves-note
-      className="max-w-[260px] rounded-md bg-amber-100/90 px-2 py-1 text-[8px] font-medium leading-snug text-amber-900 ring-1 ring-amber-300/60"
+      className="rounded-md bg-amber-100/90 px-2 py-1 text-[8px] font-medium leading-snug text-amber-900 ring-1 ring-amber-300/60 sm:max-w-[260px]"
     >
       {isMobileView ? (
-        <p data-heatmap-mobile-moves-disclaimer>{MOVES_FINGER_NOTE}</p>
+        <span data-heatmap-mobile-moves-disclaimer>{MOVES_FINGER_NOTE}</span>
       ) : null}
-      <p data-heatmap-floating-trails-note>
+      {isMobileView ? <span className="mx-1">·</span> : null}
+      <span data-heatmap-floating-trails-note>
         {isMobileView ? MOVES_FLOAT_NOTE_MOBILE : MOVES_FLOAT_NOTE_DESKTOP}
-      </p>
+      </span>
     </div>
   );
 }

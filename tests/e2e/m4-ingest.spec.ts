@@ -47,12 +47,19 @@ async function navigateToPersonalInfo(page: Page, extraParams = "m1HeatmapTest=1
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: /add to cart/i }).click();
   await page.waitForLoadState("networkidle");
-  await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
+  // M5: funnel lands on the login step.
+  await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
 
   const url = page.url();
   const sep = url.includes("?") ? "&" : "?";
   await page.goto(`${url}${sep}${extraParams}`);
   await page.waitForLoadState("networkidle");
+  await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
+
+  // Complete the login step; the app carries extraParams through to personal-info.
+  await page.locator("#login_name").fill("Test");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.waitForURL(/step=personal-info/, { timeout: 10000 });
   await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
 }
 
@@ -159,9 +166,8 @@ test("Test 30 — at 0% sampling nothing is recorded", async ({ page }) => {
   await clearHeatmapData(page);
   await navigateToPersonalInfo(page, "m1HeatmapTest=1&heatmapSampleRate=0");
 
-  // The funnel's first (pre-param) load is sampled by default and, since M4 Part
-  // 5, commits a zero-interaction bounce on the reload. Clear that artifact so we
-  // measure only the 0%-sampled re-entry below.
+  // After M5 the login step creates no capture sessions, so this clear is a
+  // no-op; kept so the assertion below is unambiguous regardless of run order.
   await clearHeatmapData(page);
 
   // Capture is gated off, so there is no active session to flush — clicking and

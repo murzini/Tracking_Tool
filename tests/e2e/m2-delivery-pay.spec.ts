@@ -55,6 +55,11 @@ async function navigateToCheckout(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: /add to cart/i }).click();
   await page.waitForLoadState("networkidle");
+  // M5: funnel lands on the login step.
+  await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
+  await page.locator("#login_name").fill("Test");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.waitForURL(/step=personal-info/, { timeout: 10000 });
   await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
 }
 

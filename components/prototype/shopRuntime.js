@@ -75,12 +75,17 @@ export function getCheckoutHref(sku, step = "login", options = {}) {
   // The checkout step must travel in the URL in normal mode too, otherwise the
   // CTA cannot advance the visitor from one step to the next (buildShopQuery
   // only emits step under tour=1). Tour params are preserved when isTour.
+  // Test/automation params are forwarded so login → PI stays a single navigation
+  // and never creates a stray session.
   const params = new URLSearchParams();
   if (options.isTour) {
     params.set("tour", "1");
     if (sku) params.set("sku", sku);
   }
   if (step) params.set("step", step);
+  if (options.m1HeatmapTest) params.set("m1HeatmapTest", "1");
+  if (options.m1HeatmapAnchor) params.set("m1HeatmapAnchor", "1");
+  if (options.heatmapSampleRate != null) params.set("heatmapSampleRate", String(options.heatmapSampleRate));
 
   const query = params.toString();
   return `/checkout/${encodeURIComponent(sku)}${query ? `?${query}` : ""}`;

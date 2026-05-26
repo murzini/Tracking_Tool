@@ -209,6 +209,7 @@ export function CheckoutFlow({
     return (
       <input
         ref={ref}
+        id={id}
         value={value}
         onChange={onChange}
         onFocus={() => setActiveField(id)}

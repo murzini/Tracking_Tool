@@ -145,10 +145,11 @@ Primary files:
 - `tests/e2e/m4-ingest.spec.ts` — Tests 29–30 (M4 Part 2: batched ingest delivery + beacon-on-close, client no longer calls legacy POST; sampling gate both ways)
 - `tests/e2e/m4-mousemove-scroll.spec.ts` — Tests 31–32 (M4 Part 3: desktop mouse-move captured + throttled ~100 ms; M4 Part 7: mobile finger-movement also captured via `touchmove`; scroll events with increasing depth)
 - `tests/e2e/m4-field-visibility.spec.ts` — Tests 33–35 (M4 Part 4: field focus/blur/change without raw values; validation-error-shown; element visibility ≥50% with visible duration)
-- `tests/e2e/m4-session-signals.spec.ts` — Tests 36–38 + 41 + 42 + 44 (M4 Part 5: zero-interaction bounce + sweep; `advanced`/`completed` outcomes; `step_active_ms`/`step_idle_ms` reconcile; session resume within X; Part 6: `in-progress` outcome + sweep guard; Part 8: session-merge regression guard — Tests 36 + 44 are `test.fixme`, deferred to M5)
+- `tests/e2e/m4-session-signals.spec.ts` — Tests 36–38 + 41 + 42 + 44 (M4 Part 5: zero-interaction bounce + sweep; `advanced`/`completed` outcomes; `step_active_ms`/`step_idle_ms` reconcile; session resume within X; Part 6: `in-progress` outcome + sweep guard; Part 8: session-merge regression guard — Tests 36 + 44 un-skipped in M5)
 - `tests/e2e/m4-rendering.spec.ts` — Tests 39, 40, 43 (M4 Parts 6–8: mouse-move trails view; scroll green colour-by-depth gradient + legend; mobile finger-movement render + disclaimer)
+- `tests/e2e/m5-login.spec.ts` — Tests 45–48 (M5: login step renders + gate enforced; empty name blocks Continue; valid name advances to PI + writes visitor_id; sessions carry visitor_id; second login mints different visitor_id)
 - Test 3 (`m1-heatmap.spec.ts`) updated in Part 4 to assert the Heatmap step dropdown; Test 1 Scenario A updated in Part 5 (zero-interaction now bounces)
-- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. Full suite: 52 active tests passing + 2 `test.fixme` (Tests 36 + 44, deferred to M5); M4 Parts 1–8 added Tests 28–44.
+- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. Full suite: 58 active tests passing; M4 Parts 1–8 added Tests 28–44.
 
 Responsibility:
 - verify milestone behavior
@@ -316,7 +317,7 @@ Anticipated M3 debt is recorded in `PRODUCT_OVERVIEW.md` → Tech Debt: two crit
 
 ## M4 architecture — extended interaction capture + batched pipe
 
-**Status: IN PROGRESS — Parts 1–7 done + Part 8 port (Chunks A–F) done (Part 1 2026-05-22, Parts 2–4 2026-05-23, Part 5 2026-05-24, Parts 6–7 2026-05-24, Part 8 port 2026-05-25); suite 52/52 active tests passing (Tests 36 + 44 are `test.fixme`, deferred to M5). Both critical tech-debt items resolved. Remaining for close: close gates (`milestone-doc-review`, agent review, `milestone-prereqs`).** Scope decisions agreed during planning (see `PRODUCT_OVERVIEW.md` → Future Milestones → M4 → "Decisions agreed"). This section is the architecture + implementation plan required by the `milestone-start` gate, structured so each part ends with a manual check. The batching / ingestion / sampling design it builds on is in `Documentation/SCALE_DESIGN.md`. Part 1 (interactive step navigation, Test 28), Part 2 (batched ingestion pipe + sampling gate, Tests 29–30), Part 3 (mouse-move + scroll-depth capture, Tests 31–32), Part 4 (field/validation/visibility capture, Tests 33–35), Part 5 (session signals + outcomes, Tests 36–38 + 41), Part 6 (rendering — two views each behind a toggle, Tests 39–40 + 42), and Part 7 (mobile finger-movement capture, Test 43) are implemented and verified; the Part 8 port (chosen single style per type) is implemented and the suite is 53/53 green.
+**Status: CLOSED (2026-05-26). Parts 1–8 delivered; close gates met (`milestone-doc-review`, agent review, `milestone-prereqs` READY). Tests 36 + 44 were `test.fixme` at M4 close and were un-skipped and fixed in M5.** Scope decisions agreed during planning (see `PRODUCT_OVERVIEW.md` → Future Milestones → M4 → "Decisions agreed"). This section is the architecture + implementation plan required by the `milestone-start` gate, structured so each part ends with a manual check. The batching / ingestion / sampling design it builds on is in `Documentation/SCALE_DESIGN.md`. Part 1 (interactive step navigation, Test 28), Part 2 (batched ingestion pipe + sampling gate, Tests 29–30), Part 3 (mouse-move + scroll-depth capture, Tests 31–32), Part 4 (field/validation/visibility capture, Tests 33–35), Part 5 (session signals + outcomes, Tests 36–38 + 41), Part 6 (rendering — two views each behind a toggle, Tests 39–40 + 42), and Part 7 (mobile finger-movement capture, Test 43) are implemented and verified; the Part 8 port (chosen single style per type) is implemented and the suite is 53/53 green.
 
 ### Current shape (M4 at close)
 
@@ -451,3 +452,56 @@ Consider adding a standing "lean/structure" check to `milestone-doc-review` so f
 ### Tech debt context
 
 Anticipated M4 debt to record at `milestone-start` and mark at close: mobile touch-move not captured (**resolved/scheduled — pulled into Part 7 scope 2026-05-24**); batched-pipe complexity + the at-unload beacon size limit (~64 KB); mouse-move volume vs the Neon free limit (validate against TTL); two-renderings cost in Part 6 until the loser is dropped; `outcome=completed` is step-inferred (no real purchase signal until thank-you is instrumented). Detail and final wording live in `PRODUCT_OVERVIEW.md` → Tech Debt at `milestone-start`.
+
+## M5 architecture — login step + visitor attribution
+
+**Status: CLOSED (2026-05-26). All 3 parts delivered; 58/58 tests green. Close gates met: `milestone-doc-review`, tech-debt review, agent review, `FUTURE_THIRD_PARTY_INTEGRATION.md` reviewed, `milestone-prereqs` → READY.** Scope frozen; spec fully specified (see `PRODUCT_OVERVIEW.md` → M5). Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M5).
+
+### Goal and boundaries
+
+M5 inserts a lightweight login step (`step=login`) at the start of the checkout flow, before Personal Information. The visitor enters a name (required) and an optional cosmetic password. On completion a unique `visitor_id` UUID is generated and stored in localStorage; all subsequent sessions on that visit (`personal-info`, `delivery`, `pay`) are tagged with it so actions can be attributed to a specific individual.
+
+- **In scope:** login step UI (name + password fields, CTA "Continue"); `?step=login` routing; step nav exclusion; `visitor_id` UUID generation (localStorage); `visitor_id` written to the `sessions` table and round-tripped through the ingest path.
+- **Out of scope (POC deferral):** credential validation; real auth; `visitor_id` in the query API; heatmap capture on the login step.
+
+### Architecture changes
+
+- **`components/prototype/CheckoutFlow.jsx`:** add a `login` case to the step renderer — two fields (name required, password optional/cosmetic), CTA "Continue". Step nav (step pills / breadcrumb) explicitly excludes `login`.
+- **`components/prototype/shopRuntime.js` / `app/checkout/[sku]/page.jsx`:** `?step=login` becomes the checkout entry point; Continue (with non-empty name) advances `login → personal-info`; existing `advanced`/`completed` outcome wiring is unchanged for subsequent steps.
+- **`lib/prototype/checkoutVisitorId.js` (new):** `mintVisitorId()` — generates a UUID and writes it to localStorage (`m1.heatmap.visitorId`). Called once on login Continue. `getVisitorId()` — reads the stored value; returns `null` if absent (visitor arrived without going through login).
+- **`lib/prototype/checkoutHeatmapClient.js`:** on init for `personal-info`/`delivery`/`pay`, read `visitor_id` from localStorage via `getVisitorId()` and include it on every session payload sent to `/ingest`.
+- **`lib/prototype/checkoutHeatmapStore.server.js`:** `ingestCheckoutHeatmapBatch` writes `visitor_id` to the `sessions` upsert. Uses `COALESCE(existing, incoming)` so a late beacon from a resumed session never overwrites an already-set id.
+- **`lib/prototype/checkoutHeatmap.js`:** `normalizeCheckoutHeatmapSession` round-trips `visitor_id` (read from DB row, exposed on the session object).
+- **`scripts/db-setup.mjs`:** `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS visitor_id TEXT` — idempotent; must be run against **both** `public` and `heatmap_test` schemas before any login-step code is tested.
+
+### Files expected to change / be added
+
+- **New:** `lib/prototype/checkoutVisitorId.js`
+- **Changed:** `components/prototype/CheckoutFlow.jsx`; `components/prototype/shopRuntime.js` (or `app/checkout/[sku]/page.jsx`); `lib/prototype/checkoutHeatmapClient.js`; `lib/prototype/checkoutHeatmapStore.server.js`; `lib/prototype/checkoutHeatmap.js`; `scripts/db-setup.mjs`; `Documentation/DATA.md` (new `visitor_id` column); test specs.
+
+### Implementation plan (3 parts — each part ends with a manual check)
+
+**Part 1 — Schema migration + login step UI.**
+- Apply `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS visitor_id TEXT` in `db-setup.mjs`; run against both `public` and `heatmap_test`.
+- Add the login step to `CheckoutFlow.jsx`: name field (required), password field (optional, cosmetic), CTA "Continue".
+- Wire `?step=login` routing: checkout entry point becomes `login`; Continue with a non-empty name advances to `personal-info`; empty name blocks and shows a validation message.
+- Exclude `login` from the step nav (step pills / breadcrumb).
+- *Manual check:* navigate shop → add to cart → checkout opens on the **login screen**; step nav shows Personal Information | Choose Delivery | Pay & Finish (**no Login**); submit with empty name → blocked; fill name → Continue → lands on Personal Information.
+
+**Part 2 — Visitor ID generation + session attribution.**
+- `checkoutVisitorId.js`: `mintVisitorId()` generates a UUID and writes to localStorage on login Continue; `getVisitorId()` reads it back.
+- Wire `mintVisitorId()` call into the login Continue handler in `CheckoutFlow.jsx` / `page.jsx`.
+- `checkoutHeatmapClient.js`: on init, call `getVisitorId()` and attach to the session payload.
+- `checkoutHeatmapStore.server.js`: write `visitor_id` in `ingestCheckoutHeatmapBatch` (COALESCE-protected upsert).
+- `checkoutHeatmap.js`: `normalizeCheckoutHeatmapSession` round-trips `visitor_id`.
+- `DATA.md`: document the new `visitor_id` column.
+- *Manual check:* complete login → drop off on Personal Information → inspect DB (direct query) → session row has `visitor_id` set; create a second drop-off in the same browser without logging in again → same `visitor_id` on both rows; open an incognito window, complete login again → a different `visitor_id`.
+
+**Part 3 — Tests + close gates.**
+- Write new test cases (exact numbers assigned after `milestone-test-planning`): login step renders; empty name blocks Continue; valid name advances to Personal Information; `visitor_id` is written to localStorage on login; subsequent sessions carry that `visitor_id` in DB; a second login mints a new `visitor_id`.
+- Full suite green (54 active carried + new M5 tests).
+- *Manual check:* run `scripts/run-playwright-isolated.ps1` → all tests pass.
+
+### Tech debt context
+
+Anticipated M5 debt identified at planning: `visitor_id` in localStorage (POC stand-in; server-side identity deferred to M8); new UUID per login (no cross-visit continuity); `visitor_id` not in query API; login step not heatmap-captured; no credential validation; step nav exclusion hardcoded; schema migration must reach both schemas. Detail and outcomes at close in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M5).

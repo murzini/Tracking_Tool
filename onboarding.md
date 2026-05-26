@@ -26,31 +26,28 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 ## Current state
 
-- **M1, M2, M3, M4** — COMPLETE and signed off.
-- **M5 — Login Step and Individual Session Attribution** — IN PROGRESS. Parts 1 + 2 done and manually verified. Part 3 (tests + close gates) not yet started.
-  - **Part 1 — DONE (2026-05-26).** Schema migration (`visitor_id TEXT` on both schemas), login step UI in `CheckoutFlow.jsx`, `?step=login` as checkout entry, heatmap capture disabled on login. Manual check passed.
-  - **Part 2 — DONE (2026-05-26).** `lib/prototype/checkoutVisitorId.js` (`mintVisitorId` / `getVisitorId` / `isLoginDone`). UUID minted on login Continue → localStorage + sessionStorage gate. `resolveStep` blocks checkout steps without gate. `visitor_id` on every session payload, written to DB (COALESCE upsert), round-tripped through normalize + rowToSession. `DATA.md` updated. Manual check passed.
-  - Earlier work: session-merge bug fix (54/54 green), model-selector agent, login step spec fully specified, anticipated tech debt recorded, architecture + 3-part plan documented, `milestone-test-planning` OK, `milestone-start` READY — all logged in `AGENT_RUN_LOG.csv`.
-- **Still deferred to the user:** the `PRODUCT_OVERVIEW.md` structural split.
+- **M1, M2, M3, M4, M5** — COMPLETE and signed off.
+- **M5 — Login Step and Individual Session Attribution — CLOSED (2026-05-26).** All 3 parts delivered. **58/58 active tests passing.** All close gates met.
+  - Part 1: schema migration (`visitor_id TEXT` on both schemas), login step UI, `?step=login` entry, heatmap capture disabled on login.
+  - Part 2: `lib/prototype/checkoutVisitorId.js` (`mintVisitorId` / `getVisitorId` / `isLoginDone`), UUID → localStorage + sessionStorage gate, `visitor_id` on all session payloads, written to DB.
+  - Part 3: full test suite updated (login gate in all flow helpers), 4 new tests (Tests 45–48), 58/58 green.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Start Part 3 — Tests + close gates.**
+**Start M6 — Admin Dashboard.**
 
-- Update existing full-flow helpers in test specs to navigate through the login step (~47 tests affected per `milestone-test-planning`).
-- Add 4 new tests (Tests 45–48): login step renders; empty name blocks; valid name advances to PI; `visitor_id` written to localStorage; subsequent sessions carry same `visitor_id`; new login mints new `visitor_id`.
-- Run full suite via `scripts/run-playwright-isolated.ps1` → all green.
-- Run close gates: `milestone-doc-review`, tech-debt review, agent review, `FUTURE_THIRD_PARTY_INTEGRATION.md` review, `milestone-prereqs` → READY.
-- Commit.
+- Read `PRODUCT_OVERVIEW.md` → M6 scope before starting.
+- Run `milestone-start` → must return READY before any code.
+- Current suite baseline: **58/58 active tests passing** (see `TEST_CASES.md`).
 
 ## What to read first, in order
 
-**Essential — read before M5 work:**
+**Essential — read before M6 work:**
 1. `Documentation/AGENTS.md` — working rules + agent catalogue. Governs how all work is done.
-2. `Documentation/PRODUCT_OVERVIEW.md` → M5 scope — session-merge fix (DONE) + login step spec (FULLY SPECIFIED).
-3. `Documentation/TEST_CASES.md` → M4 — current green count is 54/54 (Tests 36 + 44 now active).
-4. `Documentation/ARCHITECTURE_OVERVIEW.md` → M5 — 3-part implementation plan for the login step. Also read → M4 for session lifecycle context.
+2. `Documentation/PRODUCT_OVERVIEW.md` → M6 scope — Admin Dashboard spec.
+3. `Documentation/TEST_CASES.md` → M5 — current green count is 58/58.
+4. `Documentation/ARCHITECTURE_OVERVIEW.md` → M5 for login/session context; M4 for session lifecycle.
 
 **Reference — read as needed:**
 5. `Documentation/DATA.md` — Postgres schema (`sessions` + `events`); `exit_reason` semantics.
@@ -58,7 +55,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 7. `Documentation/FUTURE_THIRD_PARTY_INTEGRATION.md` — integration seams.
 8. `Documentation/AGENT_RUN_LOG.csv` — audit trail of agent runs.
 
-Past M1–M4 are settled and recorded in the docs above — don't re-litigate them.
+Past M1–M5 are settled and recorded in the docs above — don't re-litigate them.
 
 ## Key rules / gotchas
 

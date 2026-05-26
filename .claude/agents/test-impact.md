@@ -23,7 +23,7 @@ Steps in scope as of the current milestone: `personal-info`, `delivery`, `pay`.
 
 The mapping below is a guide for the common files; treat `Documentation/TEST_CASES.md` as authoritative for the exact test↔behavior mapping, and re-derive impact for any file not listed here.
 
-- `components/prototype/CheckoutFlow.jsx` — affects Tests 4, 7, 8, 9, 11, 13–18, 28, 33, 34, 37 (layout, step rendering, data-heatmap-id attributes + type hints, step CTAs/navigation, field + error anchors)
+- `components/prototype/CheckoutFlow.jsx` — affects Tests 4, 7, 8, 9, 11, 13–18, 28, 33, 34, 37, 45–47 (layout, step rendering, data-heatmap-id attributes + type hints, step CTAs/navigation, field + error anchors, login step UI)
 - `lib/prototype/checkoutScanner.js` — affects Tests 11, 13, 14, 15, 16, 17, 18, 33, 35 (live DOM discovery, type resolution, anchor ids — source of truth for trackable elements; field + visibility anchors)
 - `lib/prototype/scannerConfig.js` — affects Tests 13, 14, 16, 34 (which selectors/types are auto-discovered + the error selector)
 - `lib/prototype/checkoutHeatmapClient.js` — affects Tests 1, 5, 7, 8, 9, 10, 12, 17, 18, 29–38, 41, 42 (capture logic for all event types: clicks, mouse-move, scroll, field/validation/visibility; batched ingest + unload beacon; sampling gate; step/view tagging; active/idle timing; zero-interaction bounce; session resume)
@@ -39,7 +39,8 @@ The mapping below is a guide for the common files; treat `Documentation/TEST_CAS
 - `app/api/checkout-heatmap/query/route.js` — affects Tests 20–26 (read-only query API: step/view/from/to filters)
 - `app/api/checkout-heatmap/cleanup/route.js` — affects Test 27 (TTL/archival cleanup)
 - `app/checkout/[sku]/heatmap/page.jsx` — affects Tests 7, 8, 9, 11, 17, 18, 19, 39, 40, 43 (step-aware viewer, click-dot rendering incl. opacity-by-count, surface + fixed-overlay anchor resolution, the mouse-move trails + scroll colour-by-depth views, the type toggle — one style per type since Part 8 — and the mobile finger-movement render + disclaimer)
-- `app/checkout/[sku]/page.jsx` — affects Tests 1, 3, 12, 18, 28 (checkout page, step resolution, capture enablement on all steps, single-click step navigation)
+- `app/checkout/[sku]/page.jsx` — affects Tests 1, 3, 12, 18, 28, 45–48 (checkout page, step resolution + login gate (`resolveStep`), capture enablement on all steps, single-click step navigation, login→PI navigation)
+- `lib/prototype/checkoutVisitorId.js` — affects Tests 45–48 (`mintVisitorId` / `getVisitorId` / `isLoginDone`; visitor_id minted on login completion; localStorage gate; visitor_id carried on all subsequent sessions)
 - `components/prototype/TopBar.jsx` — affects Tests 2, 3, 11 (Clear data button, Heatmap step dropdown, `nav:header` anchor)
 - `components/prototype/shopRuntime.js` — affects Tests 4, 5, 17 (ShopFrame, mobile width, chatbot fixed icon)
 - `lib/ui/breakpoints.js` — affects Tests 5, 31 (desktop breakpoint changes view classification; movement capture differs by view — desktop records mouse-move, mobile records finger-move since Part 7)

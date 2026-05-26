@@ -47,11 +47,17 @@ async function sweep(page: Page, force = true) {
 // so the full funnel is unnecessary). `automation` flips the short autotest
 // inactivity/grace window (2s) on via m1HeatmapTest=1; omit it for the longer
 // 30s window when a test needs time to act (e.g. filling fields before advancing).
+// M5: navigate through the login step first; the app (via the setStep fix) carries
+// m1HeatmapTest to personal-info in one client navigation — no stray session.
 async function gotoCheckout(page: Page, { automation = true, step = "personal-info" } = {}) {
-  const params = new URLSearchParams({ step });
-  if (automation) params.set("m1HeatmapTest", "1");
-  await page.goto(`/checkout/${SKU}?${params.toString()}`);
+  const loginParams = new URLSearchParams({ step: "login" });
+  if (automation) loginParams.set("m1HeatmapTest", "1");
+  await page.goto(`/checkout/${SKU}?${loginParams.toString()}`);
   await page.waitForLoadState("networkidle");
+  await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
+  await page.locator("#login_name").fill("Test");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.waitForURL(/step=personal-info/, { timeout: 10000 });
   await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
 }
 
@@ -87,10 +93,7 @@ async function fillPersonalInfo(page: Page) {
 }
 
 // ─── Test 36 — zero-interaction bounce ───────────────────────────────────────
-// Zero-click sessions never finalize (clearResumeRef requires ≥1 click — M1
-// rule). Marked `fixme` and deferred to M5 with the session-merge fix; remove
-// `.fixme` once the M5 fix lands.
-test.fixme("Test 36 — a zero-interaction visit is recorded as an abandoned bounce", async ({ page }) => {
+test("Test 36 — a zero-interaction visit is recorded as an abandoned bounce", async ({ page }) => {
   await clearHeatmapData(page);
   await gotoCheckout(page);
 
@@ -282,12 +285,7 @@ test("Test 42 — a resolved outcome is not reverted by a later sweep", async ({
 // (via a transform toggle that crosses the observer threshold — no scroll/click)
 // past the window; returning must therefore start a NEW session id, not resume.
 
-// DEFERRED TO M5 (first task): this reproduces the session-merge bug. The M4
-// partial change (visibility ≠ activity) is not sufficient — another passive
-// source still refreshes the resume clock, so this still fails. Marked `fixme`
-// so the suite stays green; remove `.fixme` once the M5 fix lands. See
-// PRODUCT_OVERVIEW.md → M5 scope → "Fix the session-merge bug".
-test.fixme("Test 44 — visibility events do not refresh the resume window (visits stay separate)", async ({ page }) => {
+test("Test 44 — visibility events do not refresh the resume window (visits stay separate)", async ({ page }) => {
   await clearHeatmapData(page);
   await gotoCheckout(page); // automation → inactivity / resume window = 2s
 

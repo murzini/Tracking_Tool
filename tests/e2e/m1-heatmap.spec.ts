@@ -18,7 +18,8 @@ async function navigateToPersonalInfo(page: Page, options: { testParam?: boolean
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: /add to cart/i }).click();
   await page.waitForLoadState("networkidle");
-  await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
+  // M5: funnel lands on the login step.
+  await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
 
   if (options.testParam) {
     const url = page.url();
@@ -26,8 +27,14 @@ async function navigateToPersonalInfo(page: Page, options: { testParam?: boolean
     const extra = options.anchorMode ? "&m1HeatmapAnchor=1" : "";
     await page.goto(`${url}${sep}m1HeatmapTest=1${extra}`);
     await page.waitForLoadState("networkidle");
-    await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
+    await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
   }
+
+  // Complete the login step; the app carries any test params through to personal-info.
+  await page.locator("#login_name").fill("Test");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.waitForURL(/step=personal-info/, { timeout: 10000 });
+  await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
 }
 
 async function flushActiveHeatmapSession(page: Page) {
@@ -82,16 +89,20 @@ test("[desktop] zero-interaction visits bounce; interaction sessions store event
   // nothing; the product now records bounces.)
   await navigateToPersonalInfo(page, { testParam: true });
   await page.waitForTimeout(INACTIVITY_MS + 500);
+
+  // Navigate away to fire pagehide → sendBeacon commits the zero-interaction session.
+  // M5: login→PI is a client-side nav (no pagehide), so the session stays in memory
+  // until the visitor actually leaves the page.
+  await page.goto(HEATMAP_URL);
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(500); // let the beacon reach the server
+
   const sweepRes = await page.request.post("/api/checkout-heatmap/sweep", { data: { force: true } });
   expect(sweepRes.ok()).toBeTruthy();
 
   const resA = await page.request.get("/api/checkout-heatmap");
   const dataA = await resA.json();
   console.log(`  Scenario A (no interaction): bounce sessions = ${dataA.sessions.length}`);
-
-  await page.goto(HEATMAP_URL);
-  await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(500);
   await page.screenshot({ path: `${EVIDENCE}/no-interaction.png` });
 
   expect(dataA.sessions.length, "Scenario A: a zero-interaction visit must be recorded as a bounce").toBeGreaterThanOrEqual(1);

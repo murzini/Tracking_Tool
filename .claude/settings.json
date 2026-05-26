@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\":\"Model-fit check: confirm the current model suits this task before invoking a subagent (see .claude/agents/model-selector.md).\",\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"Pre-agent model-fit: confirm current model is right for this task before spawning a subagent. If not, tell user to switch first.\"}}'",
+            "shell": "bash"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Model-fit check: if this prompt starts a new task or changes the task type, emit the one-line model-fit verdict per .claude/agents/model-selector.md BEFORE doing other work or tool calls - Model: <tier> OK - <reason> if the current model fits, or Suggest /model <tier> - <reason> if not. Never switch models implicitly (no subagent model override); prompt the user and wait for them to switch.\"}}'",
+            "shell": "bash"
+          }
+        ]
+      }
+    ]
+  }
+}

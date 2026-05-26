@@ -47,6 +47,11 @@ async function navigateToCheckout(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: /add to cart/i }).click();
   await page.waitForLoadState("networkidle");
+  // M5: funnel lands on the login step.
+  await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
+  await page.locator("#login_name").fill("Test");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.waitForURL(/step=personal-info/, { timeout: 10000 });
   await page.locator('input[placeholder="Your name"]').waitFor({ state: "visible", timeout: 20000 });
 }
 
@@ -60,9 +65,33 @@ type Step = "personal-info" | "delivery" | "pay";
 // pass-through page that — since M4 Part 5 — is recorded as a zero-interaction
 // bounce, inflating the seeded count. Each prior step's page is already finalized
 // before the next direct navigation, so its unload is a no-op.
+//
+// M5: the login gate must be satisfied first. For the initial call we navigate
+// through login with m1HeatmapTest=1 so the app carries it to personal-info in
+// one client navigation — no stray session. Subsequent calls reuse the existing
+// sessionStorage gate and skip the login flow.
 async function seedStepClick(page: Page, step: Step, sentinelId: string, targetId: string) {
-  await page.goto(`/checkout/001?step=${step}&m1HeatmapTest=1`);
-  await page.waitForURL(new RegExp(`step=${step}`), { timeout: 10000 });
+  const isLoggedIn = await page.evaluate(() => {
+    try {
+      return typeof sessionStorage !== "undefined" && sessionStorage.getItem("m1.login.done") === "1";
+    } catch {
+      return false;
+    }
+  });
+  if (!isLoggedIn) {
+    await page.goto("/checkout/001?step=login&m1HeatmapTest=1");
+    await page.locator("#login_name").waitFor({ state: "visible", timeout: 20000 });
+    await page.locator("#login_name").fill("Test");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await page.waitForURL(/step=personal-info/, { timeout: 10000 });
+    if (step !== "personal-info") {
+      await page.goto(`/checkout/001?step=${step}&m1HeatmapTest=1`);
+      await page.waitForURL(new RegExp(`step=${step}`), { timeout: 10000 });
+    }
+  } else {
+    await page.goto(`/checkout/001?step=${step}&m1HeatmapTest=1`);
+    await page.waitForURL(new RegExp(`step=${step}`), { timeout: 10000 });
+  }
   await page.locator(`[data-heatmap-id="${sentinelId}"]`).waitFor({ state: "visible", timeout: 10000 });
   await page.locator(`[data-heatmap-id="${targetId}"]`).click();
   await page.waitForTimeout(INACTIVITY_MS + 500);
