@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "shop-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:\\Users\\user\\start-m0.js"],
+      "port": 3000,
+      "autoPort": false
     }
   ]
 }

@@ -23,11 +23,12 @@ const CHECKOUT_STEP_ORDER = ["personal-info", "delivery", "pay"];
 
 function resolveStep(searchParams) {
   const routeStep = searchParams.get("step");
+  if (routeStep === "login") return "login";
   if (routeStep === "personal-info") return "personal-info";
   if (routeStep === "delivery" || routeStep === "pay") return routeStep;
   if (routeStep === "payment") return "pay";
   if (routeStep === "customize") return "personal-info";
-  return "personal-info";
+  return "login";
 }
 
 export default function CheckoutRoutePage() {
@@ -53,7 +54,7 @@ function CheckoutRouteContent() {
   // resolved/validated to one of personal-info | delivery | pay above and is
   // passed through to the session, so the scanner tags each step's clicks.
   useCheckoutHeatmapCapture({
-    enabled: Boolean(item) && !isHeatmapPreview,
+    enabled: Boolean(item) && !isHeatmapPreview && step !== "login",
     sku: item?.sku || sku,
     step,
     automation: heatmapAutomation,

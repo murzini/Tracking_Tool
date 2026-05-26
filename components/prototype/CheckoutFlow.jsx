@@ -129,7 +129,7 @@ export function CheckoutFlow({
     if (typeof setStageStep === "function") setStageStep(next);
   };
 
-  const safeStep = ["personal-info", "delivery", "pay"].includes(step) ? step : "personal-info";
+  const safeStep = ["login", "personal-info", "delivery", "pay"].includes(step) ? step : "personal-info";
 
   const [personalInfo, setPersonalInfo] = useState({
     accountType: "private",
@@ -153,6 +153,10 @@ export function CheckoutFlow({
         }, {})
       : {}
   );
+  const [loginName, setLoginName] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginNameError, setLoginNameError] = useState("");
+
   const [delivery, setDelivery] = useState("novaPoshta");
   const [payment, setPayment] = useState("wire");
   const [card, setCard] = useState({ number: "", name: "", expiry: "", cvc: "" });
@@ -407,6 +411,14 @@ export function CheckoutFlow({
     return Object.keys(nextErrors).length === 0;
   };
 
+  const handleLoginContinue = () => {
+    if (!loginName.trim()) {
+      setLoginNameError("Required field");
+      return;
+    }
+    go("personal-info");
+  };
+
   const handleContinueToDelivery = () => {
     if (!validatePersonalInfo()) return;
     go("delivery");
@@ -486,6 +498,53 @@ export function CheckoutFlow({
         <div className="mt-6 grid gap-6 lg:grid-cols-12">
           {/* MAIN COLUMN */}
           <div className="col-span-12 lg:col-span-7">
+            {safeStep === "login" ? (
+              <LeftCard>
+                <h3 className="mt-2 text-3xl font-semibold tracking-tight">Sign in</h3>
+                <p className="mt-2 max-w-xl text-sm text-muted-foreground">Enter your name to continue to checkout.</p>
+
+                <div className="mt-8 space-y-6">
+                  <LabeledField label="Name" required>
+                    <StickyInput
+                      id="login_name"
+                      value={loginName}
+                      onChange={(e) => {
+                        setLoginName(e.target.value);
+                        if (loginNameError) setLoginNameError("");
+                      }}
+                      placeholder="Your name"
+                      className={`${baseInputClass}${loginNameError ? ` ${errorInputClass}` : ""}`}
+                    />
+                    {loginNameError ? (
+                      <div data-field-error className="mt-2 text-xs font-medium text-[#DC2626]">{loginNameError}</div>
+                    ) : null}
+                  </LabeledField>
+
+                  <LabeledField label="Password">
+                    <StickyInput
+                      id="login_password"
+                      type="password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="Password (optional)"
+                      className={baseInputClass}
+                    />
+                  </LabeledField>
+                </div>
+
+                <ActionBar
+                  right={
+                    <Button
+                      className="h-12 w-full rounded-2xl bg-[#0B1A33] hover:bg-[#0B1A33]/90"
+                      onClick={handleLoginContinue}
+                    >
+                      Continue <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </LeftCard>
+            ) : null}
+
             {safeStep === "personal-info" ? (
               <LeftCard>
                 <div className="text-xs text-muted-foreground">Checkout - Step {stepMeta.n}</div>

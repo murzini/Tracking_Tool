@@ -83,6 +83,10 @@ async function setupSchema(schema) {
     `ALTER TABLE "${schema}".sessions ADD COLUMN IF NOT EXISTS exit_reason TEXT`,
     'sessions.exit_reason ready'
   );
+  await run(
+    `ALTER TABLE "${schema}".sessions ADD COLUMN IF NOT EXISTS visitor_id TEXT`,
+    'sessions.visitor_id ready'
+  );
 
   await run(`
     CREATE TABLE IF NOT EXISTS "${schema}".events (
