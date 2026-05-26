@@ -27,32 +27,22 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 ## Current state
 
 - **M1, M2, M3, M4** — COMPLETE and signed off.
-- **M4 closed 2026-05-26.** All 9 prerequisites met. Close gates: `milestone-doc-review` logged GAPS-FIXED 2026-05-26 10:30, `milestone-prereqs` logged OK 2026-05-26 01:39.
-- **M5 — Login Step and Individual Session Attribution** — IN PROGRESS. All planning gaps closed; `milestone-start` returned READY 2026-05-26 19:42.
-  - **Model-selector agent — DONE (2026-05-26).** Built at `.claude/agents/model-selector.md`.
-  - **Session-merge bug fix — DONE (2026-05-26).** `appendCheckoutHeatmapEvent` no longer touches `lastInteractionAt` when `resetActivity:false`; `hasClicks` gate removed from `saveSession` and `isCheckoutHeatmapDropOffCandidate`. Tests 36 + 44 un-skipped; **54/54 suite green**. Full spec in `PRODUCT_OVERVIEW.md` → M5 scope item 1.
-  - **Login step spec — FULLY SPECIFIED (2026-05-26).** All decisions agreed. Step key `login`, CTA "Continue", not shown in step nav, `visitor_id` stored in DB only (not in query API). Full spec in `PRODUCT_OVERVIEW.md` → M5 scope item 3 + `FUTURE_THIRD_PARTY_INTEGRATION.md` → M5.
-  - **MovesNote mobile layout — fixed (2026-05-26).** Yellow note on mobile heatmap now renders as a horizontal strip below the top-bar logo row (single render, no duplication).
-  - **Anticipated M5 tech debt — recorded (2026-05-26).** 8 non-critical items in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M5).
-  - **M5 architecture + 3-part implementation plan — documented (2026-05-26).** In `ARCHITECTURE_OVERVIEW.md` → M5.
-  - **milestone-test-planning — OK (2026-05-26 19:38).** Keep 7, update ~47 (login step in full-flow helpers), remove 0, +4 new (Tests 45–48). Logged in `AGENT_RUN_LOG.csv`.
-  - **milestone-start — READY (2026-05-26 19:42).** All 7 prerequisites met. Logged in `AGENT_RUN_LOG.csv`.
-  - **Part 2 — Visitor ID + session attribution + login gate — DONE (2026-05-26).** `checkoutVisitorId.js` added (`mintVisitorId` / `getVisitorId` / `isLoginDone`). `mintVisitorId()` called on login Continue (sets UUID in localStorage + sessionStorage gate). `resolveStep` blocks non-login steps if gate absent. `visitor_id` attached to every session payload via `checkoutHeatmapClient`, written to DB via `ingestCheckoutHeatmapBatch` (COALESCE — first non-null wins), round-tripped through `normalizeCheckoutHeatmapSession` and `rowToSession`. `DATA.md` updated.
-  - **Part 1 — Schema migration + login step UI — DONE (2026-05-26).** `visitor_id TEXT` column added to both `public` and `heatmap_test` via idempotent ALTER in `db-setup.mjs`. Login step renders in `CheckoutFlow.jsx` (name required, password optional, CTA "Continue"); excluded from step nav; `?step=login` is the new checkout default (`resolveStep`); heatmap capture disabled on login step. Manual check passed: login screen on entry, PI/Delivery/Pay nav only, empty name blocked, valid name → Personal Information.
+- **M5 — Login Step and Individual Session Attribution** — IN PROGRESS. Parts 1 + 2 done and manually verified. Part 3 (tests + close gates) not yet started.
+  - **Part 1 — DONE (2026-05-26).** Schema migration (`visitor_id TEXT` on both schemas), login step UI in `CheckoutFlow.jsx`, `?step=login` as checkout entry, heatmap capture disabled on login. Manual check passed.
+  - **Part 2 — DONE (2026-05-26).** `lib/prototype/checkoutVisitorId.js` (`mintVisitorId` / `getVisitorId` / `isLoginDone`). UUID minted on login Continue → localStorage + sessionStorage gate. `resolveStep` blocks checkout steps without gate. `visitor_id` on every session payload, written to DB (COALESCE upsert), round-tripped through normalize + rowToSession. `DATA.md` updated. Manual check passed.
+  - Earlier work: session-merge bug fix (54/54 green), model-selector agent, login step spec fully specified, anticipated tech debt recorded, architecture + 3-part plan documented, `milestone-test-planning` OK, `milestone-start` READY — all logged in `AGENT_RUN_LOG.csv`.
 - **Still deferred to the user:** the `PRODUCT_OVERVIEW.md` structural split.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Parts 1 + 2 DONE — manual check Part 2, then start Part 3.** Implementation plan in `ARCHITECTURE_OVERVIEW.md` → M5 → Implementation plan.
+**Start Part 3 — Tests + close gates.**
 
-- **Part 2 manual check:**
-  - Complete login → drop off on PI → inspect DB → session row has `visitor_id` set
-  - Second drop-off in same browser without re-logging in → same `visitor_id`
-  - Open incognito, complete login → different `visitor_id`
-  - Navigate directly to `?step=personal-info` without login (new session/tab) → redirected to login
-- **Part 3 — Tests + close gates.** (after Part 2 manual check passes)
-- **Commit per part**, as recommended in `AGENTS.md` → Completion and testing.
+- Update existing full-flow helpers in test specs to navigate through the login step (~47 tests affected per `milestone-test-planning`).
+- Add 4 new tests (Tests 45–48): login step renders; empty name blocks; valid name advances to PI; `visitor_id` written to localStorage; subsequent sessions carry same `visitor_id`; new login mints new `visitor_id`.
+- Run full suite via `scripts/run-playwright-isolated.ps1` → all green.
+- Run close gates: `milestone-doc-review`, tech-debt review, agent review, `FUTURE_THIRD_PARTY_INTEGRATION.md` review, `milestone-prereqs` → READY.
+- Commit.
 
 ## What to read first, in order
 

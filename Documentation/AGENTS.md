@@ -57,6 +57,12 @@ Agent definitions live in `.claude/agents/`. All agents must be reviewed at the 
   - **Why it exists**: Ensures implementation does not begin until all unknowns are resolved and the team has a clear plan, preventing ad-hoc decisions and unplanned tech debt.
   - **When to use**: Before any implementation work on a new milestone begins.
 
+- **`model-selector`** (`model-selector.md`) — **added in M5.**
+  - **What it does**: Given the task about to be done, recommends which model the main session should run on (3-tier: Opus / Sonnet / Haiku) and gives the exact `/model` command to switch.
+  - **Why it exists**: The best model varies by task (architecture/hard debugging → Opus; everyday coding → Sonnet; mechanical edits → Haiku) and it is easy to forget to switch. A workflow helper, not heatmap-specific.
+  - **When to use**: At the start of a new task or when the task type changes. Runs automatically — `CLAUDE.md` instructs the main session to apply the tier mapping at task start and surface a one-line suggestion only when the current model is not the best fit. Can also be invoked explicitly for a considered recommendation.
+  - **Note**: Runs on Haiku (cheap routing task) and does **not** log to `AGENT_RUN_LOG.csv` (high-frequency helper; the CSV is reserved for milestone-quality agents).
+
 
 
 ## Starting a milestone
@@ -73,9 +79,19 @@ A milestone must not begin implementation until all of the following are satisfi
 
 A milestone is not considered started until `milestone-start` has been run and returned a READY verdict.
 
+## Model selection at task start
+
+At the start of each new task — and whenever the task type changes mid-session — assess whether the current model tier is the best fit using `.claude/agents/model-selector.md` (3-tier: Opus/Sonnet/Haiku). Emit a one-line verdict before proceeding: either `Model: <tier> OK — <reason>` if it fits, or `Suggest /model <tier> — <reason>` if it doesn't. 
+
+**Critical rule:** Never shift the model implicitly (via subagent override or workaround). The user controls all transitions — you prompt, they switch, you proceed. This ensures explicit control over every model change.
+
+**Enforcement hooks:** `.claude/settings.json` reinforces this automatically — a `UserPromptSubmit` hook injects the model-fit reminder on every prompt; a `PreToolUse`/Agent hook fires before any subagent runs. These are a safety net, not a substitute for the proactive one-line verdict.
+
+See `CLAUDE.md` → "Model selection" for the full rule and examples.
+
 ## Session management
 
-- After each significant checkpoint, explicitly tell the user this is a good point to start a new session. Significant checkpoints are: milestone closed, scope frozen, major documentation update, architecture decision made.
+- After each significant checkpoint, explicitly tell the user this is a good point to start a new session. Significant checkpoints are: milestone closed, scope frozen, major documentation update, architecture decision made, **a milestone part is complete and the next part is about to begin**.
 - The reason: long conversations degrade response quality even with compression. Documentation is the source of truth — a fresh session reading the core docs picks up exactly where the previous one left off.
 - When suggesting a new session, ask the user: "Would you like me to update ONBOARDING.md before you start the new session?" If yes, update it to reflect the current state before the session ends.
 - `ONBOARDING.md` must also be reviewed and updated by the `milestone-doc-review` agent at the end of every milestone.
