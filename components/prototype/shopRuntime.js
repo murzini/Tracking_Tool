@@ -71,7 +71,7 @@ export function getDetailsHref(sku, options = {}) {
   return `/details/${encodeURIComponent(sku)}${buildShopQuery({ ...options, sku })}`;
 }
 
-export function getCheckoutHref(sku, step = "personal-info", options = {}) {
+export function getCheckoutHref(sku, step = "login", options = {}) {
   // The checkout step must travel in the URL in normal mode too, otherwise the
   // CTA cannot advance the visitor from one step to the next (buildShopQuery
   // only emits step under tour=1). Tour params are preserved when isTour.

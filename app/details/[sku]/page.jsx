@@ -42,7 +42,7 @@ function DetailsRouteContent() {
             item={item}
             config={detailsConfig}
             onBack={() => router.push(getSearchHref({ isTour, step: "search", sku: item.sku }))}
-            onCheckout={() => router.push(getCheckoutHref(item.sku, "personal-info", { isTour }))}
+            onCheckout={() => router.push(getCheckoutHref(item.sku, "login", { isTour }))}
           />
         </motion.div>
       )}
