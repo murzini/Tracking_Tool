@@ -726,6 +726,8 @@ Introduce a **unit-test layer** (Vitest) to cover the **durable, pure-logic core
 ### M7 — AI Report Generation
 Using all captured data within the scope and timeframe selected in the admin dashboard, generate an AI-powered report that aggregates visitor behavior, identifies friction points and drop-off patterns, produces a written summary, and outputs actionable recommendations and testable hypotheses for improving checkout conversion.
 
+**Pre-requisite before M7 begins:** push the branch to GitHub (all commits through M6.2 close). Clean milestone boundary = clean restore point.
+
 **How recommendations & hypotheses are produced:** the structured, aggregated findings (drop-off points, field friction, errors, attention) are fed to an LLM, which outputs prioritised recommendations and testable hypotheses ("if we change X, drop-off should fall"). A human reviews the output before acting on it.
 
 #### M7.1 — Capture-window check extraction + unit test (deferred from M6.2)

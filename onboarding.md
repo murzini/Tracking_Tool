@@ -31,7 +31,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 ## Next action
 
-**Start M7** — AI-powered report. Run `milestone-start` to check prerequisites, then proceed with planning. Full scope in `PRODUCT_OVERVIEW.md` → M7. Sequence: M6 → M6.1 → M6.2 → **M7** → M7.1 → M7.2.
+**Before M7:** push branch to GitHub (`git push`) — required pre-requisite. Then run `milestone-start` for M7. Full scope in `PRODUCT_OVERVIEW.md` → M7. Sequence: M6 → M6.1 → M6.2 → **M7** → M7.1 → M7.2.
 
 ## What to read first, in order
 
