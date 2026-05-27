@@ -88,9 +88,12 @@ Single-row runtime config table added in M6 Part 2. Stores the admin-configured 
                     "nav": true, "area": true, "tooltip": true, "tooltip-content": true,
                     "accordion": true },
   "samplingRate": 1,
-  "captureWindow": { "from": null, "to": null }
+  "captureWindow": { "from": null, "to": null },
+  "inactivityMs": 30000
 }
 ```
+
+`inactivityMs` is the admin-editable drop-off threshold (ms); the capture client applies it after the background config fetch and persists it per-session in `inactivity_ms`.
 
 No row → `GET /api/checkout-heatmap/config` returns the defaults above. Gating is applied at two layers: the capture client checks the config on init (fail-open; background fetch) and the ingest endpoint rechecks on every batch write (authoritative, timing-independent).
 

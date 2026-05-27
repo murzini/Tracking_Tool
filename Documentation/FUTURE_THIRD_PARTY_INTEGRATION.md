@@ -104,7 +104,7 @@ M4 built the batched capture pipe + sampling gate and captured the full event se
 
 ### Configurable rules (M4)
 
-- **Visitor sampling gate:** a per-visit decision persisted in the `m1.heatmap.sampled` cookie; rate resolves `heatmapSampleRate` query param → `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` env → default `1` (100%). If a visit is not sampled, capture is fully off. The dashboard control is M6; the external-rate contract is M8.
+- **Sampling gate (per-session since M6):** each session (one step visit) is sampled independently — the product measures per-step conversion, not whole journeys. Rate precedence: `heatmapSampleRate` query param → runtime dashboard config → `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` env → default `1` (100%); 0%/100% deterministic, intermediate rates flip a per-session coin (client-side). The external-rate contract is M8. *(M4 originally used a per-visitor `m1.heatmap.sampled` cookie; removed in M6.)*
 - **Mouse/finger-move throttle:** ~100 ms (≈10 Hz). Tunable; the path-fidelity vs volume trade-off is revisited at real scale (M8).
 - **Resume window `X`:** see "Session resume and external re-entry" below.
 

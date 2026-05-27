@@ -29,7 +29,7 @@ The mapping below is a guide for the common files; treat `Documentation/TEST_CAS
 - `lib/prototype/checkoutHeatmapClient.js` — affects Tests 1, 5, 7, 8, 9, 10, 12, 17, 18, 29–38, 41, 42 (capture logic for all event types: clicks, mouse-move, scroll, field/validation/visibility; batched ingest + unload beacon; sampling gate; step/view tagging; active/idle timing; zero-interaction bounce; session resume)
 - `lib/prototype/checkoutHeatmap.js` — affects Tests 1, 5, 6, 10, 12, 19, 38 (session/event models incl. `step`, view classification, radius scaling, step filtering, step active/idle timing)
 - `lib/prototype/checkoutHeatmapRegistry.js` — affects Test 11 (the auto-maintained `CHECKOUT_ELEMENT_REGISTRY` snapshot the parity check reads)
-- `lib/prototype/checkoutHeatmapSampling.js` — affects Test 30 (visitor sampling gate: `m1.heatmap.sampled` cookie, effective `sampling_rate`)
+- `lib/prototype/checkoutHeatmapSampling.js` — affects Test 30 (per-session sampling gate: effective `sampling_rate`; M6 made it per-session and removed the `m1.heatmap.sampled` cookie)
 - `lib/prototype/checkoutHeatmapResume.js` — affects Test 41 (session resume within X via the localStorage-persisted session id)
 - `app/api/checkout-heatmap/ingest/route.js` — affects Tests 29, 30, 42 (batched ingestion — the live write path; `{ session, events[] }` body; in-progress upsert)
 - `app/api/checkout-heatmap/sweep/route.js` — affects Tests 36, 42 (lazy/derived finalize: drop-offs → `abandoned`, in-progress flip)

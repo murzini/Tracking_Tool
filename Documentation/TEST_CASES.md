@@ -349,7 +349,7 @@ Tests **4, 5, 6, 11, 13, 14, 15, 16, 17, 19, 22, 23, 24, 25, 26, 27** — struct
 ### New cases (Tests 28+)
 - **Test 28 — Single-click step navigation.** ✅ *Implemented Part 1 (2026-05-22) — `tests/e2e/m4-step-nav.spec.ts`.* Fill mandatory fields → one CTA click advances personal-info → delivery → pay, one step per click, **no double-click**; the Pay CTA reaches the thank-you page. A second test asserts an invalid mandatory field blocks the advance and shows the validation error. (Part 1 acceptance requirement.)
 - **Test 29 — Batched ingestion delivery.** ✅ *Implemented Part 2 (2026-05-23) — `tests/e2e/m4-ingest.spec.ts`.* Two functions: (a) clicks are delivered via batched `POST /ingest` (payload carries an `events[]` batch), the client makes **no** call to the legacy `POST /api/checkout-heatmap`, and the click lands in the store; (b) a click buffered then `pagehide`-flushed via `sendBeacon` lands in the store **without** finalize (polled inside the inactivity window). (Critical: delivery reliability.)
-- **Test 30 — Visitor sampling gate.** ✅ *Implemented Part 2 (2026-05-23) — `tests/e2e/m4-ingest.spec.ts`.* Two functions: at 100% the `m1.heatmap.sampled` cookie is `1`, capture runs, and the session stores `samplingRate:1`; with `heatmapSampleRate=0` the cookie is `0` and no session/events are recorded. (Gate works both ways.)
+- **Test 30 — Sampling gate.** ✅ *Implemented Part 2 (2026-05-23); updated M6 to per-session (2026-05-27) — `tests/e2e/m4-ingest.spec.ts`.* Two functions: at 100% capture runs and the session stores `samplingRate:1`; with `heatmapSampleRate=0` no session/events are recorded. (Gate works both ways.) **M6:** sampling is now a **per-session** probability from the runtime config — the per-visitor `m1.heatmap.sampled` cookie was removed, so the cookie assertions were dropped. Only the deterministic 0%/100% gates are e2e-covered; intermediate-rate probability (e.g. 50%) is unit-test territory (M6.2).
 - **Test 31 — Mouse-move + finger-move capture.** ✅ *Implemented Part 3 (2026-05-23); mobile half revised in Part 7 (2026-05-24) — `tests/e2e/m4-mousemove-scroll.spec.ts`.* Two functions: on desktop, moving the mouse records several `mouse-move` events whose consecutive timestamps are ≥~100 ms apart (throttled ≈10 Hz, not one-per-frame); on a mobile-width viewport, simulated `touchmove` finger drags record `mouse-move` events under the same ~100 ms throttle (finger movement is now captured on mobile — supersedes the original "movement = desktop-only" assertion), while the tap is still captured.
 - **Test 43 — Mobile finger-movement render + disclaimer.** ✅ *Implemented Part 7 (2026-05-24); rewritten Part 8 (2026-05-25) — `tests/e2e/m4-rendering.spec.ts`.* A mobile session with finger movement (simulated `touchmove`, stored as `mouse-move`) renders in the "See mouse moves" view on the mobile heatmap, and the mobile view shows the finger-movement disclaimer; the desktop moves view shows none. **Part 8:** the moves view now renders **trails** (density dropped), so the test asserts the trails overlay draws a polyline; the disclaimer now lives in the top-bar moves note (`[data-heatmap-mobile-moves-disclaimer]`, mobile-only). Seed-session lookup hardened against a stray funnel bounce. (Capture itself is asserted by Test 31's mobile half.)
 - **Test 32 — Scroll-depth capture.** ✅ *Implemented Part 3 (2026-05-23) — `tests/e2e/m4-mousemove-scroll.spec.ts`.* Scrolling down records `scroll` events carrying a 0–100 `depth`; depths are non-decreasing and the last is greater than the first (depth increases as the visitor scrolls down).
@@ -406,9 +406,9 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 
 ---
 
-## M6 — Admin Dashboard (Parts 1–3)
+## M6 — Admin Dashboard (Parts 1–4)
 
-**Status: IN PROGRESS — Parts 1–3 done (2026-05-27). 63/63 active tests passing.** Numbering continues from M5 (Tests 49+). New test file `tests/e2e/m6-config.spec.ts` covers Tests 49–53.
+**Status: IN PROGRESS — Parts 1–4 done (2026-05-27). 64/64 active tests passing.** Numbering continues from M5 (Tests 49+). `tests/e2e/m6-config.spec.ts` covers Tests 49–53; `tests/e2e/m6-dashboard.spec.ts` covers Test 54.
 **Framework:** Playwright, against `localhost:3000`, Neon Postgres store, isolated runner (`HEATMAP_DB_SCHEMA=heatmap_test`).
 **Auth token (tests):** `DASHBOARD_TOKEN=m6-dev-token` in `.env.local`; tests use `Bearer m6-dev-token`.
 
@@ -438,3 +438,12 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 **Test 53 — Sampling rate 0% in config produces no sessions.** ✅ *Implemented P3 (2026-05-27) — `tests/e2e/m6-config.spec.ts`.*
 - Save config with `samplingRate: 0` → clear cookies → navigate → click → dispatch `pagehide` → sweep → assert 0 sessions.
 - Delete config (restore defaults) → clear cookies → same flow → assert ≥1 session (100% sampling).
+
+**Test 54 — Dashboard auth gate + Data section renders + Save updates config + Clear-data wipes sessions.** ✅ *Implemented P4 (2026-05-27) — `tests/e2e/m6-dashboard.spec.ts`.*
+- Navigate to `/dashboard?token=bad-token` → `[data-dashboard-blocked]` visible (wrong token → access denied).
+- Navigate to `/dashboard` (no token) → `[data-dashboard-blocked]` visible.
+- Navigate to `/dashboard?token=m6-dev-token` → all three `[data-dashboard-section]` headers (Data / Heatmap / Report) visible; Save button and step checkboxes present.
+- Uncheck the "pay" step checkbox → click Save → assert "Saved" feedback appears → `GET /api/checkout-heatmap/config` returns `steps.pay === false`.
+- Reload dashboard with defaults restored → "pay" checkbox back to checked.
+- Seed a session via API → click "Clear all data" → confirmation pop-up appears → confirm → overlay closes → "All data cleared" feedback → `GET /api/checkout-heatmap` returns 0 sessions.
+- Evidence: `test-results/Test 54 - Dashboard auth and Data section/Check evidence/dashboard.png`

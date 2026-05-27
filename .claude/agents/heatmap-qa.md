@@ -41,7 +41,7 @@ Resolve the active milestone and current scope from `Documentation/PRODUCT_OVERV
 - `lib/prototype/checkoutHeatmap.js` — session/event models, view classification, radius scaling, step timing
 - `lib/prototype/checkoutHeatmapRegistry.js` — element registry snapshot
 - `lib/prototype/checkoutScanner.js` + `lib/prototype/scannerConfig.js` — live DOM discovery, anchor types, error selector
-- `lib/prototype/checkoutHeatmapSampling.js` — visitor sampling gate (`m1.heatmap.sampled` cookie, `sampling_rate`)
+- `lib/prototype/checkoutHeatmapSampling.js` — per-session sampling gate (rate → `sampling_rate`; M6 made it per-session and removed the `m1.heatmap.sampled` cookie)
 - `lib/prototype/checkoutHeatmapResume.js` — session resume within X (localStorage-persisted id)
 - `lib/prototype/checkoutHeatmapStore.server.js` — Neon Postgres store (ingest batch, read/clear/query/cleanup, sweep finalize, outcome upsert guards)
 - `lib/prototype/db.js` — Neon client + `HEATMAP_DB_SCHEMA` selection

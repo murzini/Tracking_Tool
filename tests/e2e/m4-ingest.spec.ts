@@ -3,13 +3,12 @@ import { test, expect, Page, Request } from "@playwright/test";
 // ─── M4 Part 2 — batched ingestion pipe + sampling gate ──────────────────────
 // Test 29: clicks are delivered via the batched /ingest endpoint (not the legacy
 //          finalize POST), and buffered events survive a tab close (sendBeacon).
-// Test 30: the visitor-level sampling gate works both ways — at 100% a cookie is
-//          set and capture runs; at 0% nothing is recorded.
+// Test 30: the per-session sampling gate works both ways — at 100% the session is
+//          recorded; at 0% nothing is recorded.
 
 const INACTIVITY_MS = 2000;
 const INGEST_PATH = "/api/checkout-heatmap/ingest";
 const LEGACY_PATH = "/api/checkout-heatmap";
-const SAMPLING_COOKIE = "m1.heatmap.sampled";
 
 async function clearHeatmapData(page: Page) {
   const res = await page.request.delete("/api/checkout-heatmap");
@@ -145,17 +144,13 @@ test("Test 29 — buffered events survive a tab close via sendBeacon", async ({ 
 
 // ─── Test 30 — visitor sampling gate ─────────────────────────────────────────
 
-test("Test 30 — at 100% sampling a cookie is set and capture runs", async ({ page }) => {
+test("Test 30 — at 100% sampling the session is recorded", async ({ page }) => {
   await clearHeatmapData(page);
   await navigateToPersonalInfo(page); // default rate = 100%
 
   await page.locator('[data-heatmap-id="text:name"]').click();
   await page.waitForTimeout(INACTIVITY_MS + 500);
   await flushActiveHeatmapSession(page);
-
-  const cookies = await page.context().cookies();
-  const sampleCookie = cookies.find((c) => c.name === SAMPLING_COOKIE);
-  expect(sampleCookie?.value, "sampling cookie must be set to in-sample (1)").toBe("1");
 
   const sessions = await getStoredSessions(page);
   expect(sessions.length, "the sampled visit must be recorded").toBe(1);
@@ -174,10 +169,6 @@ test("Test 30 — at 0% sampling nothing is recorded", async ({ page }) => {
   // waiting past the inactivity window must leave the store empty.
   await page.locator('[data-heatmap-id="text:name"]').click();
   await page.waitForTimeout(INACTIVITY_MS + 500);
-
-  const cookies = await page.context().cookies();
-  const sampleCookie = cookies.find((c) => c.name === SAMPLING_COOKIE);
-  expect(sampleCookie?.value, "sampling cookie must record the out-of-sample decision (0)").toBe("0");
 
   const sessions = await getStoredSessions(page);
   expect(sessions.length, "an un-sampled visit must not be recorded").toBe(0);

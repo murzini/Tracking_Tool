@@ -65,9 +65,17 @@ Tracked as tech debt in `PRODUCT_OVERVIEW.md` → Tech Debt → "Unbatched write
 
 M3 stores the `sampling_rate` field only. The **mechanism is built in M4**. Three layers:
 
-### 4.1 Visitor-level (internal) sampling
-- A config rate (e.g. capture X% of visitors) drives a **per-visit decision persisted in a cookie**. The capture client reads the cookie; if the visit is not sampled, capture is fully gated off (no events, no session).
-- **M4 default (decided 2026-05-22) = 100%** (track every visitor) — best for the POC. The cookie mechanism is still built so it can be exercised; the rate lives in code/env config (the dashboard control is M6).
+### 4.1 Per-session (internal) sampling
+- A config rate drives the sampling decision; if not sampled, capture is fully gated off (no events, no session). **Updated M6 (2026-05-27): the decision is per-SESSION (one step visit), not per-visitor** — the product measures per-step conversion, not whole journeys, so each session flips its own coin at the effective rate (client-side; 0%/100% deterministic, intermediate rates probabilistic). The original M4 per-visitor `m1.heatmap.sampled` cookie was removed.
+- **How it works — the coin metaphor.** Each **step visit is its own session**, and each session **flips its own coin** weighted by the rate. At 50% every eligible session is a fair coin toss — *heads* = recorded, *tails* = skipped — decided independently, with **no memory** of other steps or other sessions. 0% = a coin that always lands tails (never recorded); 100% = always heads (always recorded). Two layers stack: a step must first be **enabled** in the dashboard Steps config to be *eligible*; only an eligible step's session then tosses the coin.
+- **Worked example — 3 steps at 50%, all steps enabled.** A visitor goes personal-info → delivery → pay; each is a **separate session** that tosses its own coin:
+  - *Run 1:* personal-info **heads** (recorded), delivery **tails** (skipped), pay **tails** (skipped).
+  - *Run 2:* personal-info **heads** (recorded), delivery **tails** (skipped), pay **heads** (recorded).
+  - The mix changes run to run — there is **no positional pattern**. Delivery is not "always skipped"; it simply lost its toss both times. Over many visitors each step lands ~50%.
+  - **Enabled vs. coin toss are different things.** A step **disabled** in config (e.g. pay turned off) never tosses a coin — it is simply never recorded, regardless of rate. A *tails* result, by contrast, is an enabled step that happened to lose its toss this session.
+- **Why per-session (not per-visitor).** We measure **per-step conversion** (entered a step → completed it), so each step is sampled on its own. A single visitor's journey may be **partially captured** (one step in, the next out) — accepted, because the unit of analysis is the step, not the whole journey.
+- **Testing tip.** To see every enabled step record deterministically, use 100% (or the `?heatmapSampleRate=1` URL override); reserve 50% for observing real sampling behaviour, and expect noise across a handful of sessions.
+- **M4 default (decided 2026-05-22) = 100%** (track every visitor) — best for the POC. The rate lives in code/env config in M4; the dashboard control arrives in M6.
 - This is the enforcement point for future **usage-based pricing / monetization** (product-vision note; packaging logic is far-future, post-POC).
 
 ### 4.2 Event-level sampling (high-frequency events)
@@ -78,7 +86,7 @@ M3 stores the `sampling_rate` field only. The **mechanism is built in M4**. Thre
 ### 4.3 Effective sampling rate and count scaling
 - Each session stores an **effective `samplingRate` = external % × internal %**.
   - *External %* = the share of host traffic that reaches our tool. The tool works normally on whatever it receives; we only record the rate. The signalling/limiting mechanism is an **M8** integration contract.
-  - *Internal %* = our own visitor-level rate (4.1).
+  - *Internal %* = our own per-session sampling rate (4.1).
 - **Report-time use:** drop-off *ratios* need no adjustment (numerator and denominator are sampled equally). Absolute *counts* are scaled up by dividing by `samplingRate`. Reporting (M7) reads this field; M3/M4 only store it correctly.
 
 ---
@@ -116,7 +124,7 @@ The design above was implemented in M4. Status of each piece and each open risk:
 **Built as designed:**
 - Client ring buffer + flush on size (50) / interval (5 s) / `pagehide` + `visibilitychange→hidden` beacon (§3.1).
 - `POST /api/checkout-heatmap/ingest` with a multi-row parameterized INSERT, `ON CONFLICT (id) DO NOTHING`, and a COALESCE/GREATEST-protected session upsert (§3.2). `COPY` escalation not needed at POC volume.
-- Visitor sampling gate via the `m1.heatmap.sampled` cookie, default 100% (§4.1); effective `samplingRate` stored per session (§4.3).
+- Per-session sampling gate (rate from runtime config; the M4 `m1.heatmap.sampled` cookie was removed in M6), default 100% (§4.1); effective `samplingRate` stored per session (§4.3).
 - Movement throttle ~100 ms ≈ 10 Hz (§4.2), applied to desktop mouse-move and (M4 Part 7) mobile finger-move.
 
 **§6 risk outcomes:**

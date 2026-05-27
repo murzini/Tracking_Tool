@@ -41,13 +41,17 @@ export async function POST(request) {
   }
 
   // Capture window gate: drop if the current time is outside the configured window.
+  // The dashboard writes local-day strings ("YYYY-MM-DD"); a bare date parses as
+  // midnight UTC, so the `to` day must be taken through its END (23:59:59.999) and
+  // both bounds parsed as LOCAL time (append a time component) — otherwise a `to`
+  // of "today" gates out the whole day's capture.
   const now = Date.now();
   if (config.captureWindow?.from) {
-    const from = new Date(config.captureWindow.from).getTime();
+    const from = new Date(`${config.captureWindow.from}T00:00:00`).getTime();
     if (Number.isFinite(from) && now < from) return NextResponse.json({ ok: true, gated: true });
   }
   if (config.captureWindow?.to) {
-    const to = new Date(config.captureWindow.to).getTime();
+    const to = new Date(`${config.captureWindow.to}T23:59:59.999`).getTime();
     if (Number.isFinite(to) && now > to) return NextResponse.json({ ok: true, gated: true });
   }
 
