@@ -26,20 +26,19 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 ## Current state
 
-- **M1–M6.1 COMPLETE and signed off.** M6.1 (Heatmap Simulation Mode) fully closed 2026-05-28. All 3 parts done; 73/73 tests green (Tests 57–63 new, Test 54 updated); `milestone-prereqs` READY; committed `34c27a1`. Sim schema isolation, `resolveHeatmapSchema` allowlist, bulk insert, generator, `/simulate` routes, `?source=sim` viewer, and dashboard Simulation section all delivered.
-- **M6.2 — Unit Test Foundation — scope frozen 2026-05-28.** `milestone-start` intentionally skipped (follow-up, not a new milestone). Target files: `checkoutHeatmap.js`, `checkoutHeatmapSampling.js`, `heatmapConfigStore` — every business rule covered. Tool: Vitest. Location: `tests/unit/*.test.ts`. Run workflow in `AGENTS.md` → "Unit + e2e test workflow". Capture-window check deferred to M7.1. Full scope in `PRODUCT_OVERVIEW.md` → M6.2. **Sequence: M6 → M6.1 → M6.2 → M7.**
+- **M1–M6.2 COMPLETE and signed off.** M6.2 (Unit Test Foundation) fully closed 2026-05-28. 54 Vitest unit tests across 4 pure-logic modules all green; `milestone-prereqs` READY; committed `b851547`. Capture-window check (M7.1) and ingest config gates (M7.2) deferred pending extraction to pure modules.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**M6.2 — run `milestone-test-planning` agent** to list every business rule in `checkoutHeatmap.js`, `checkoutHeatmapSampling.js`, and `heatmapConfigStore`, each mapped to a test. That list is the build checklist — one rule, one test. Then implement part by part per the `AGENTS.md` unit+e2e workflow.
+**Start M7** — AI-powered report. Run `milestone-start` to check prerequisites, then proceed with planning. Full scope in `PRODUCT_OVERVIEW.md` → M7. Sequence: M6 → M6.1 → M6.2 → **M7** → M7.1 → M7.2.
 
 ## What to read first, in order
 
 1. `Documentation/AGENTS.md` — working rules + agent catalogue. Governs how all work is done.
-2. `Documentation/PRODUCT_OVERVIEW.md` — M6.1 closed; M6.2 scope notes in "Future Milestones".
-3. `Documentation/TEST_CASES.md` → M6.1 — 73 tests; Tests 57–63 new, Test 54 updated.
-4. `Documentation/ARCHITECTURE_OVERVIEW.md` — M6.1 architecture CLOSED.
+2. `Documentation/PRODUCT_OVERVIEW.md` — M6.2 closed; M7 scope in "Future Milestones".
+3. `Documentation/TEST_CASES.md` → M6.1 — 73 e2e tests; M6.2 — 54 unit tests.
+4. `Documentation/ARCHITECTURE_OVERVIEW.md` — M6.2 unit test layer added.
 
 **Reference — read as needed:**
 5. `Documentation/DATA.md` — Postgres schema (`sessions` + `events`); `exit_reason` semantics.
