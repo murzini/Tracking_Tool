@@ -53,7 +53,7 @@ Past M1–M5 are settled and recorded in the docs above — don't re-litigate th
 - A change isn't done until the relevant tests are green; if you didn't run them, say so.
 - Run tests via the isolated runner `scripts/run-playwright-isolated.ps1` — it sets `HEATMAP_DB_SCHEMA=heatmap_test` so the suite never hits production data.
 - If the `.ps1` is blocked by execution policy: set `$env:HEATMAP_DB_SCHEMA=heatmap_test` → start dev server → `npx playwright test`.
-- Suite runs single-worker; current green count lives in `TEST_CASES.md` → M6.1 (don't hardcode it here). **Don't run the suite while `npm run dev` is up** — shared port 3000 + `.next` cache corrupts the build. If wedged: stop all dev servers → delete `.next` → start one fresh. (Tip: don't start your own dev server on another port either — it shares `.next` and can wedge the runner.)
+- Suite runs single-worker; current green count lives in `TEST_CASES.md` → M6.2 (don't hardcode it here). **Don't run the suite while `npm run dev` is up** — shared port 3000 + `.next` cache corrupts the build. If wedged: stop all dev servers → delete `.next` → start one fresh. (Tip: don't start your own dev server on another port either — it shares `.next` and can wedge the runner.)
 - Log every agent run in `Documentation/AGENT_RUN_LOG.csv` (append only).
 - If tests change, update `TEST_CASES.md` + the `PRODUCT_OVERVIEW.md` test summary. If architecture changes, update `ARCHITECTURE_OVERVIEW.md`.
 - Don't declare a milestone complete until `milestone-prereqs` returns READY.
