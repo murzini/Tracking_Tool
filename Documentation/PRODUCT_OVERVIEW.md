@@ -632,6 +632,32 @@ Add an admin dashboard (access-controlled, link-based) where an admin can config
 - **Heatmap surfaced — "apply filters → render" model (agreed 2026-05-27):** the heatmap-section controls act as **filters over already-collected data** (no capture involved). The admin sets the context — step, desktop/mobile, view type, timeframe (view window), outcome filter — then clicks a button that **opens the configured heatmap in a new browser tab**, same as today. Config is passed as URL params (`?step=...&view=...&type=...&from=...&to=...&outcome=...`), so the link is shareable/bookmarkable; every click applies the params. Unlike the data section, there is **no Save** here — the button simply renders the filtered result.
 - **Raw data access — DROPPED from M6 (2026-05-27).** No raw-data export (file or in-dashboard table) is built. The backend engineer queries the Postgres `sessions`/`events` tables directly for any raw analysis. This narrows the product Scope item "raw data access / export" for the POC: the data lives in the DB and is query-accessible; a dashboard export UI is not needed. (Revisit at M8 integration if Autohero analysts need self-serve export — see M8 "Analyst DB access".)
 
+#### Implementation flow (phased — 2026-05-27)
+Six sequential parts, each ending with a manual check (same discipline as M2–M5). Full technical detail — files, the config-storage decision, and per-part manual checks — lives in `ARCHITECTURE_OVERVIEW.md` → "M6 architecture — admin dashboard". The two built-code tasks are sequenced to keep the suite green: the outcome rename lands first (with its test update); the Shop header removal lands last, after the dashboard provides the replacement path.
+
+- **Part 1 — Outcome-model unification.** Collapse `advanced` into `completed` ("completed this step") across code, the DB (one-time relabel of existing `advanced` rows, both schemas), tests (Test 37), and docs. *Check:* finished steps read `completed`; no `advanced` rows remain; suite green.
+- **Part 2 — Runtime config store + API + defaults.** Single-row `heatmap_config` table (Postgres — see the storage decision in `ARCHITECTURE_OVERVIEW.md`), config defaults = today's behavior, secret-token auth helper + `DASHBOARD_TOKEN`, public `GET` / auth-gated `POST` config endpoint. No UI yet. *Check:* GET returns defaults; authed POST persists across restart; unauthed POST rejected.
+- **Part 3 — Capture reads runtime config.** Capture client gates on step / element-type / event-type / capture-window toggles (fail-open to defaults) and takes sampling rate from config (not env). *Check:* disabling a step/type stops its capture; re-enabling resumes; sampling honored.
+- **Part 4 — Dashboard shell + auth gate + Data section.** `/dashboard?token=`, Shop-styled, narrow/centered, desktop-only; the 8-item Data section with staged edits + one Save; Clear-data behind a confirmation pop-up (immediate, exempt from Save). *Check:* valid token renders / wrong token blocked; Save changes capture; Clear-data wipes all.
+- **Part 5 — Heatmap section + viewer outcome filter + timeframe.** Dashboard Heatmap section (step / desktop·mobile icons / view type / timeframe / outcome) opens the viewer in a new tab via URL params; the viewer gains the outcome filter (drop-offs/completers/all) and timeframe view-window. Breathing heatmap icon. *Check:* filters apply on open; outcome filter isolates `abandoned`/`completed`/all; out-of-range timeframe shows the no-data message.
+- **Part 6 — Remove Shop header controls + Report placeholder + close.** Delete the header Heatmap/Clear-data/toggle/note from the live Shop (delete, not hide); add the Report placeholder button; rewrite Tests 2/3 onto the dashboard/API path; run close gates. *Check:* live Shop has no heatmap/admin UI; dashboard is the only entry; suite green; all close gates logged.
+
+### M6.1 — Heatmap Simulation Mode (follow-up to M6)
+*Idea captured 2026-05-27; sequenced **after M6 is complete**. Not yet scope-frozen — needs its own `milestone-start` before any code.*
+
+A dashboard section that lets the admin **simulate** how the heatmap looks at volume, without any real visitors. Generate a configurable number of sessions (e.g. ~1500) with **random actions on the Personal Information step** (the fixed simulation step), covering **both desktop and mobile** and **all three views** (clicks / mouse-moves / scrolls), so the admin can eyeball the visualisations populated.
+
+**Hard constraints:**
+- **Simulated data is stored separately from real data** — real `sessions`/`events` must never be mixed with simulated ones.
+- **Discardable** — the admin can wipe the simulated set, and **real data must remain fully intact**.
+
+**Feasibility / likely approach (not committed):** the existing per-schema isolation (`HEATMAP_DB_SCHEMA`, already used for `heatmap_test`) gives a natural separation — a dedicated `heatmap_sim` schema (or a `simulated` flag), where "discard" wipes only that set. Prior art: M4 Part 8 used throwaway sim pages (`heatmap-sim/`, `heatmap-scroll-sim/`, since deleted) to preview mouse-move/scroll at ~1000 sessions, so generating and rendering aggregates is proven.
+
+**Decisions so far (2026-05-27):**
+- **Random model = realistic mix.** Simulated sessions follow real-life ratios — most drop off, some complete, some idle — so the heatmap resembles real traffic and the outcome filter is testable on sim data. (Not pure random.)
+
+**Open questions for its own scoping:** simulated outcome/exit distribution detail; fixed ~1500 vs admin-set session count; separate schema vs `simulated` flag; reuse the real viewer pointed at the sim set vs a separate sim view; whether sims respect the capture on/off toggles; admin-only access (assumed, like the rest of the dashboard).
+
 ### M7 — AI Report Generation
 Using all captured data within the scope and timeframe selected in the admin dashboard, generate an AI-powered report that aggregates visitor behavior, identifies friction points and drop-off patterns, produces a written summary, and outputs actionable recommendations and testable hypotheses for improving checkout conversion.
 
