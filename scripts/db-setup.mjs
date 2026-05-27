@@ -94,6 +94,15 @@ async function setupSchema(schema) {
     'outcome migration: advanced→completed'
   );
 
+  // M6 Part 2: single-row runtime config table.
+  await run(`
+    CREATE TABLE IF NOT EXISTS "${schema}".heatmap_config (
+      id         INTEGER     PRIMARY KEY DEFAULT 1,
+      config     JSONB       NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, 'heatmap_config table ready');
+
   await run(`
     CREATE TABLE IF NOT EXISTS "${schema}".events (
       id          TEXT        PRIMARY KEY,

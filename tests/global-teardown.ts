@@ -39,8 +39,10 @@ export default async function globalTeardown() {
   try {
     const sql = neon(process.env.DATABASE_URL);
     // events cascade-delete from sessions via the FK, so truncating sessions
-    // clears both tables.
+    // clears both tables. Also wipe runtime config so tests that write config
+    // don't leak into subsequent runs.
     await sql.query(`TRUNCATE TABLE "${schema}".sessions CASCADE`);
+    await sql.query(`DELETE FROM "${schema}".heatmap_config`);
     console.log(`  [teardown] wiped "${schema}" schema (sessions + events)`);
   } catch (err) {
     console.log(`  [teardown] wipe failed: ${(err as Error).message}`);

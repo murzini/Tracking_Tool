@@ -148,8 +148,9 @@ Primary files:
 - `tests/e2e/m4-session-signals.spec.ts` — Tests 36–38 + 41 + 42 + 44 (M4 Part 5: zero-interaction bounce + sweep; `advanced`/`completed` outcomes; `step_active_ms`/`step_idle_ms` reconcile; session resume within X; Part 6: `in-progress` outcome + sweep guard; Part 8: session-merge regression guard — Tests 36 + 44 un-skipped in M5)
 - `tests/e2e/m4-rendering.spec.ts` — Tests 39, 40, 43 (M4 Parts 6–8: mouse-move trails view; scroll green colour-by-depth gradient + legend; mobile finger-movement render + disclaimer)
 - `tests/e2e/m5-login.spec.ts` — Tests 45–48 (M5: login step renders + gate enforced; empty name blocks Continue; valid name advances to PI + writes visitor_id; sessions carry visitor_id; second login mints different visitor_id)
+- `tests/e2e/m6-config.spec.ts` — Tests 49–53 (M6 P2+P3: config GET defaults; POST saves with valid token / 401 without; step disabled → 0 sessions; mouse-move disabled → 0 mouse-move events; samplingRate=0 → 0 sessions)
 - Test 3 (`m1-heatmap.spec.ts`) updated in Part 4 to assert the Heatmap step dropdown; Test 1 Scenario A updated in Part 5 (zero-interaction now bounces)
-- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. Full suite: 58 active tests passing; M4 Parts 1–8 added Tests 28–44.
+- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. Full suite: 63 active tests passing.
 
 Responsibility:
 - verify milestone behavior
@@ -508,7 +509,7 @@ Anticipated M5 debt identified at planning: `visitor_id` in localStorage (POC st
 
 ## M6 architecture — admin dashboard
 
-**Status: IN PROGRESS — Part 1 done (2026-05-27): outcome-model unification (`advanced` → `completed`). Parts 2–6 to follow.** Scope frozen + fully specified (`PRODUCT_OVERVIEW.md` → M6 → "Decisions agreed (2026-05-27)"). This section is the architecture + phased implementation plan required by the `milestone-start` gate. Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6). The test plan is produced separately by `milestone-test-planning`; this section names the known test impacts so that plan can account for them.
+**Status: IN PROGRESS — Parts 1–3 done (2026-05-27): outcome-model unification (P1); runtime config store + API (P2); capture reads runtime config with server-side ingest gate (P3). Parts 4–6 to follow.** Scope frozen + fully specified (`PRODUCT_OVERVIEW.md` → M6 → "Decisions agreed (2026-05-27)"). This section is the architecture + phased implementation plan required by the `milestone-start` gate. Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6). The test plan is produced separately by `milestone-test-planning`; this section names the known test impacts so that plan can account for them.
 
 ### Goal and boundaries
 

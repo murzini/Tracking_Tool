@@ -64,6 +64,36 @@ Generalises `clicks[]` → `events[]`. A click is `type: "click"`.
 
 Indexes: `session_id`, `type`, `timestamp DESC`, `(session_id, type)`.
 
+### heatmap_config
+
+Single-row runtime config table added in M6 Part 2. Stores the admin-configured capture settings; read by every visit and written by the dashboard Save.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Always 1 (single-row sentinel) |
+| `config` | JSONB | Full config object — see shape below. `{}` treated as "use defaults". |
+| `updated_at` | TIMESTAMPTZ | Updated on every upsert |
+
+**Config shape** (defaults = today's behavior; `getDefaultHeatmapConfig()` in `lib/prototype/heatmapConfigStore.server.js`):
+
+```json
+{
+  "steps":        { "personal-info": true, "delivery": true, "pay": true },
+  "eventTypes":   { "click": true, "tap": true, "mouse-move": true, "scroll": true,
+                    "field-focus": true, "field-blur": true, "field-change": true,
+                    "validation-error": true, "element-visible": true, "element-hidden": true },
+  "elementTypes": { "text": true, "toggle": true, "display": true, "error": true,
+                    "date": true, "tel": true, "dropdown": true, "button": true,
+                    "radio": true, "checkbox": true, "cta": true, "icon": true,
+                    "nav": true, "area": true, "tooltip": true, "tooltip-content": true,
+                    "accordion": true },
+  "samplingRate": 1,
+  "captureWindow": { "from": null, "to": null }
+}
+```
+
+No row → `GET /api/checkout-heatmap/config` returns the defaults above. Gating is applied at two layers: the capture client checks the config on init (fail-open; background fetch) and the ingest endpoint rechecks on every batch write (authoritative, timing-independent).
+
 ### Test isolation
 
 Tests run against the `heatmap_test` Postgres schema (same Neon DB). The playwright runner sets `HEATMAP_DB_SCHEMA=heatmap_test`; `lib/prototype/db.js` reads this env var (default: `public`). A post-suite teardown truncates the `heatmap_test` schema so test data never persists between runs.
@@ -85,6 +115,8 @@ Tests run against the `heatmap_test` Postgres schema (same Neon DB). The playwri
 | M4 (Part 7) | Mobile finger-movement captured as `mouse-move` rows (`touchmove`, ~10 Hz throttle, surface-relative `x`/`y`). No schema change — reuses the `mouse-move` type. |
 | M4 (Part 8) | Rendering-only port (chosen single style per type); touches no tables or columns. |
 | M6 (Part 1) | Outcome model unified: `advanced` is removed, `completed` (instead of `advanced`) is the single success outcome meaning "completed this step" (applied uniformly). No schema change — existing `advanced` rows migrated to `completed` via idempotent UPDATE. |
+| M6 (Part 2) | New `heatmap_config` table (single-row, JSONB config). `GET /api/checkout-heatmap/config` (public), `POST` / `DELETE` (auth-gated with `DASHBOARD_TOKEN`). Defaults equal today's behavior so the table is purely additive. Global teardown wipes it alongside sessions. |
+| M6 (Part 3) | Capture gated by runtime config: client fetches config on init (fail-open background fetch; aborts if step/sampling/window gates fail); ingest endpoint rechecks config on every batch (authoritative, timing-independent) — drops session if step disabled or samplingRate=0, filters event array by disabled event types. No schema change. |
 
 ---
 

@@ -403,3 +403,38 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 **Test 48 — Sessions carry visitor_id; second login mints a different visitor_id.** ✅ *Implemented Part 3 (2026-05-26) — `tests/e2e/m5-login.spec.ts`.*
 - First login → click tracked element → flush session → `GET /api/checkout-heatmap` → `sessions[0].visitorId` must equal the `localStorage[m1.heatmap.visitorId]` captured after login.
 - Clear heatmap data → remove `m1.login.done` from sessionStorage → second login → `localStorage[m1.heatmap.visitorId]` must be a different UUID (mintVisitorId generates a fresh id on each login).
+
+---
+
+## M6 — Admin Dashboard (Parts 1–3)
+
+**Status: IN PROGRESS — Parts 1–3 done (2026-05-27). 63/63 active tests passing.** Numbering continues from M5 (Tests 49+). New test file `tests/e2e/m6-config.spec.ts` covers Tests 49–53.
+**Framework:** Playwright, against `localhost:3000`, Neon Postgres store, isolated runner (`HEATMAP_DB_SCHEMA=heatmap_test`).
+**Auth token (tests):** `DASHBOARD_TOKEN=m6-dev-token` in `.env.local`; tests use `Bearer m6-dev-token`.
+
+### Existing-test updates for M6 Part 1
+
+- **Test 37** (`m4-session-signals.spec.ts`): `advanced` → `completed` outcome assertion updated.
+- **Test 42** (`m4-session-signals.spec.ts`): `advanced` → `completed` in the multi-step outcome assertion.
+
+### New cases (Tests 49–53)
+
+**Test 49 — GET /api/checkout-heatmap/config returns defaults when no row exists.** ✅ *Implemented P2 (2026-05-27) — `tests/e2e/m6-config.spec.ts`.*
+- Delete the config row (reset to defaults) → `GET /api/checkout-heatmap/config` → assert `steps` has `personal-info`, `delivery`, `pay` all `true`; `eventTypes` has `click`, `mouse-move`, `scroll` all `true`; `samplingRate` is `1`; `captureWindow.from` and `.to` are `null`.
+
+**Test 50 — POST saves config with valid token; wrong/missing token → 401.** ✅ *Implemented P2 (2026-05-27) — `tests/e2e/m6-config.spec.ts`.*
+- `POST /api/checkout-heatmap/config` with no `Authorization` header → 401.
+- `POST` with `Authorization: Bearer wrong-token` → 401.
+- `POST` with `Authorization: Bearer m6-dev-token` and `{ samplingRate: 0.75, steps: { pay: false } }` → 200; subsequent `GET` reflects the saved values.
+
+**Test 51 — Disabling a step in config prevents capture on that step.** ✅ *Implemented P3 (2026-05-27) — `tests/e2e/m6-config.spec.ts`.*
+- Save config with `steps["personal-info"] = false` → navigate to personal-info → click a tracked element → dispatch `pagehide` → sweep → `GET /api/checkout-heatmap` → assert 0 sessions with `step: "personal-info"`.
+- Gate is enforced server-side at ingest (timing-independent).
+
+**Test 52 — Disabling mouse-move event type stops mouse-move capture.** ✅ *Implemented P3 (2026-05-27) — `tests/e2e/m6-config.spec.ts`.*
+- Save config with `eventTypes["mouse-move"] = false` → navigate → move mouse repeatedly → click a tracked element → dispatch `pagehide` → sweep → assert ≥1 session exists (click still captured) but no session contains a `mouse-move` event.
+- Event-type filter applied server-side at ingest (strips disabled event types before storage).
+
+**Test 53 — Sampling rate 0% in config produces no sessions.** ✅ *Implemented P3 (2026-05-27) — `tests/e2e/m6-config.spec.ts`.*
+- Save config with `samplingRate: 0` → clear cookies → navigate → click → dispatch `pagehide` → sweep → assert 0 sessions.
+- Delete config (restore defaults) → clear cookies → same flow → assert ≥1 session (100% sampling).

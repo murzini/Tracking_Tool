@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ingestCheckoutHeatmapBatch } from "../../../../lib/prototype/checkoutHeatmapStore.server";
+import { getHeatmapConfig } from "../../../../lib/prototype/heatmapConfigStore.server";
 
 export const runtime = "nodejs";
 
@@ -22,7 +23,39 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: "Missing heatmap session." }, { status: 400 });
   }
 
-  const events = Array.isArray(body?.events) ? body.events : [];
+  let events = Array.isArray(body?.events) ? body.events : [];
+
+  // M6 Part 3: server-side config gate — authoritative check applied at ingest so
+  // gating is reliable regardless of client-side config-fetch timing. Client-side
+  // gating still runs as a performance optimization (avoids generating events).
+  const config = await getHeatmapConfig();
+
+  // Step gate: drop the entire session if this step is disabled.
+  if (config.steps?.[session.step] === false) {
+    return NextResponse.json({ ok: true, gated: true });
+  }
+
+  // Sampling rate gate: drop if the config mandates 0% capture.
+  if (typeof config.samplingRate === "number" && config.samplingRate <= 0) {
+    return NextResponse.json({ ok: true, gated: true });
+  }
+
+  // Capture window gate: drop if the current time is outside the configured window.
+  const now = Date.now();
+  if (config.captureWindow?.from) {
+    const from = new Date(config.captureWindow.from).getTime();
+    if (Number.isFinite(from) && now < from) return NextResponse.json({ ok: true, gated: true });
+  }
+  if (config.captureWindow?.to) {
+    const to = new Date(config.captureWindow.to).getTime();
+    if (Number.isFinite(to) && now > to) return NextResponse.json({ ok: true, gated: true });
+  }
+
+  // Event-type gate: strip events whose type is explicitly disabled in config.
+  if (config.eventTypes && typeof config.eventTypes === "object") {
+    events = events.filter((e) => config.eventTypes[e?.type] !== false);
+  }
+
   const savedSession = await ingestCheckoutHeatmapBatch({ session, events });
 
   return NextResponse.json({
