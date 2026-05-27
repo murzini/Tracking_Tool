@@ -37,6 +37,10 @@ function CheckoutHeatmapContent() {
   // Each type has a single style now, so a URL with no `type` renders clicks and
   // the click-precision tests stay valid.
   const selectedType = readLayerType(searchParams.get("type"));
+  // M6 P5 — outcome filter and view-window timeframe from the dashboard.
+  const selectedOutcome = readOutcome(searchParams.get("outcome"));
+  const selectedFrom = searchParams.get("from") ?? "";
+  const selectedTo = searchParams.get("to") ?? "";
   const { item, loading: itemLoading } = useCatalogItem(sku);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,10 +85,25 @@ function CheckoutHeatmapContent() {
     };
   }, []);
 
-  const viewSessions = useMemo(
-    () => sessions.filter((session) => session.view === selectedView && session.step === selectedStep),
-    [selectedView, selectedStep, sessions]
-  );
+  const viewSessions = useMemo(() => {
+    let filtered = sessions.filter(
+      (session) => session.view === selectedView && session.step === selectedStep
+    );
+    if (selectedOutcome === "drop-offs") {
+      filtered = filtered.filter((s) => s.outcome === "abandoned");
+    } else if (selectedOutcome === "completers") {
+      filtered = filtered.filter((s) => s.outcome === "completed");
+    }
+    if (selectedFrom) {
+      const fromMs = new Date(selectedFrom + "T00:00:00.000").getTime();
+      filtered = filtered.filter((s) => new Date(s.startedAt).getTime() >= fromMs);
+    }
+    if (selectedTo) {
+      const toMs = new Date(selectedTo + "T23:59:59.999").getTime();
+      filtered = filtered.filter((s) => new Date(s.startedAt).getTime() <= toMs);
+    }
+    return filtered;
+  }, [selectedView, selectedStep, selectedOutcome, selectedFrom, selectedTo, sessions]);
 
   // M4 Part 6 — mouse-move data. Surface-relative x/y (captured against the same
   // shop-content surface), so they align to the overlay without anchor resolution.
@@ -235,8 +254,8 @@ function CheckoutHeatmapContent() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
             <div>
               <h1 className="text-lg font-semibold tracking-tight">{STEP_LABELS[selectedStep]} heatmap</h1>
-              <div className="mt-1 text-xs text-slate-500">
-                {selectedView} - {viewSessions.length} sessions - {layerCountLabel}
+              <div className="mt-1 text-xs text-slate-500" data-heatmap-stats>
+                {selectedView} - <span data-heatmap-session-count>{viewSessions.length}</span> sessions - {layerCountLabel}
                 {selectedType === "clicks"
                   ? ` - radius ${CHECKOUT_HEATMAP_CONFIG.minRadiusPx}px-${CHECKOUT_HEATMAP_CONFIG.maxRadiusPx}px`
                   : ""}
@@ -247,22 +266,22 @@ function CheckoutHeatmapContent() {
 
             <div className="flex flex-col gap-2 sm:pt-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <ViewLink sku={sku} step={selectedStep} view={CHECKOUT_HEATMAP_VIEWS.DESKTOP} selectedView={selectedView} type={selectedType}>
+                <ViewLink sku={sku} step={selectedStep} view={CHECKOUT_HEATMAP_VIEWS.DESKTOP} selectedView={selectedView} type={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
                   Desktop
                 </ViewLink>
-                <ViewLink sku={sku} step={selectedStep} view={CHECKOUT_HEATMAP_VIEWS.MOBILE} selectedView={selectedView} type={selectedType}>
+                <ViewLink sku={sku} step={selectedStep} view={CHECKOUT_HEATMAP_VIEWS.MOBILE} selectedView={selectedView} type={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
                   Mobile
                 </ViewLink>
               </div>
 
               <div className="flex flex-wrap items-center gap-2" data-heatmap-type-toggle>
-                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="clicks" selectedType={selectedType}>
+                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="clicks" selectedType={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
                   See clicks
                 </TypeLink>
-                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="moves" selectedType={selectedType}>
+                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="moves" selectedType={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
                   See mouse moves
                 </TypeLink>
-                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="scrolls" selectedType={selectedType}>
+                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="scrolls" selectedType={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
                   See scrolls
                 </TypeLink>
               </div>
@@ -351,33 +370,35 @@ function toggleClassName(active) {
   ].join(" ");
 }
 
-function ViewLink({ sku, step, view, selectedView, type, style, children }) {
+function ViewLink({ sku, step, view, selectedView, type, outcome, from, to, children }) {
   const active = view === selectedView;
   return (
-    <a href={buildHeatmapHref({ sku, step, view, type, style })} className={toggleClassName(active)}>
+    <a href={buildHeatmapHref({ sku, step, view, type, outcome, from, to })} className={toggleClassName(active)}>
       {children}
     </a>
   );
 }
 
-function TypeLink({ sku, step, view, type, selectedType, children }) {
+function TypeLink({ sku, step, view, type, selectedType, outcome, from, to, children }) {
   const active = type === selectedType;
   return (
-    <a href={buildHeatmapHref({ sku, step, view, type })} className={toggleClassName(active)} data-heatmap-type={type}>
+    <a href={buildHeatmapHref({ sku, step, view, type, outcome, from, to })} className={toggleClassName(active)} data-heatmap-type={type}>
       {children}
     </a>
   );
 }
 
 // `type` rides in the URL alongside step/view. Clicks (the default) emits no
-// `type` param, so a bare heatmap URL renders the click view.
-function buildHeatmapHref({ sku, step, view, type }) {
+// `type` param, so a bare heatmap URL renders the click view. M6 P5 adds
+// `outcome` and timeframe `from`/`to` so toggling view/type preserves filters.
+function buildHeatmapHref({ sku, step, view, type, outcome, from, to }) {
   const params = new URLSearchParams();
   params.set("step", step);
   params.set("view", view);
-  if (type === "moves" || type === "scrolls") {
-    params.set("type", type);
-  }
+  if (type === "moves" || type === "scrolls") params.set("type", type);
+  if (outcome && outcome !== "all") params.set("outcome", outcome);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
   return `/checkout/${encodeURIComponent(sku)}/heatmap?${params.toString()}`;
 }
 
@@ -388,6 +409,11 @@ function readView(value) {
 
 function readLayerType(value) {
   return value === "moves" || value === "scrolls" ? value : "clicks";
+}
+
+function readOutcome(value) {
+  if (value === "drop-offs" || value === "completers") return value;
+  return "all";
 }
 
 // ─── Heatmap overlays ─────────────────────────────────────────────────────────

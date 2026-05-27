@@ -406,9 +406,9 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 
 ---
 
-## M6 — Admin Dashboard (Parts 1–4)
+## M6 — Admin Dashboard (Parts 1–5)
 
-**Status: IN PROGRESS — Parts 1–4 done (2026-05-27). 64/64 active tests passing.** Numbering continues from M5 (Tests 49+). `tests/e2e/m6-config.spec.ts` covers Tests 49–53; `tests/e2e/m6-dashboard.spec.ts` covers Test 54.
+**Status: IN PROGRESS — Parts 1–5 done (2026-05-27). 66/66 active tests passing.** Numbering continues from M5 (Tests 49+). `tests/e2e/m6-config.spec.ts` covers Tests 49–53; `tests/e2e/m6-dashboard.spec.ts` covers Test 54; `tests/e2e/m6-heatmap-viewer.spec.ts` covers Tests 55–56.
 **Framework:** Playwright, against `localhost:3000`, Neon Postgres store, isolated runner (`HEATMAP_DB_SCHEMA=heatmap_test`).
 **Auth token (tests):** `DASHBOARD_TOKEN=m6-dev-token` in `.env.local`; tests use `Bearer m6-dev-token`.
 
@@ -447,3 +447,16 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 - Reload dashboard with defaults restored → open Steps MultiSelect → "pay" option has `aria-pressed="true"` (back to default).
 - Seed a session via API → click "Clear all data" → confirmation pop-up appears → confirm → overlay closes → "All data cleared" feedback → `GET /api/checkout-heatmap` returns 0 sessions.
 - Evidence: `test-results/Test 54 - Dashboard auth and Data section/Check evidence/dashboard.png`
+
+**Test 55 — Viewer outcome filter: drop-offs, completers, all.** ✅ *Implemented P5 (2026-05-27) — `tests/e2e/m6-heatmap-viewer.spec.ts`.*
+- Clear sessions → seed 1 `abandoned` session + 1 `completed` session (both `step=personal-info`, `view=desktop_view`).
+- Open `/checkout/001/heatmap?step=personal-info&view=desktop_view&outcome=drop-offs` → `[data-heatmap-session-count]` shows `1`.
+- Open same URL with `outcome=completers` → `[data-heatmap-session-count]` shows `1`.
+- Open same URL with no `outcome` param → `[data-heatmap-session-count]` shows `2`.
+- Evidence: `test-results/Test 55 - Viewer outcome filter/Check evidence/outcome-all.png`
+
+**Test 56 — Viewer timeframe: out-of-range from/to shows 0 sessions.** ✅ *Implemented P5 (2026-05-27) — `tests/e2e/m6-heatmap-viewer.spec.ts`.*
+- Clear sessions → seed 1 session (current timestamp, 2026).
+- Open heatmap with `from=2000-01-01&to=2000-01-02` → `[data-heatmap-session-count]` shows `0`.
+- Open same URL without timeframe params → `[data-heatmap-session-count]` shows `1`.
+- Evidence: `test-results/Test 56 - Viewer timeframe filter/Check evidence/no-data.png`
