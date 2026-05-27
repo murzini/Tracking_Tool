@@ -29,7 +29,8 @@ npm run dev
 - `COACH_BASE_URL` must point to the Coach base domain (without trailing slash) when Coach proxying is enabled.
 - `DATABASE_URL` — Neon (Postgres) pooled connection string for the heatmap store. Required for capture, the heatmap viewer, and the query/cleanup APIs. Lives in `.env.local` (gitignored); see `.env.example` for the format. Never commit the real value.
 - `HEATMAP_DB_SCHEMA` — Postgres schema the store reads/writes (default `public`). The isolated test runner sets it to `heatmap_test` so the suite never touches production data.
-- `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` — visitor-level capture sampling rate, `0`–`1` (default `1` = 100%). A `heatmapSampleRate` query param overrides it per visit (used by tests and manual checks). When a visit is not sampled, capture is fully off.
+- `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` — per-session capture sampling rate, `0`–`1` (default `1` = 100%). Now a seed/fallback only — runtime config (dashboard) takes precedence; a `heatmapSampleRate` query param overrides for tests and manual checks. Sampling is applied per session (one step visit); 0%/100% are deterministic.
+- `DASHBOARD_TOKEN` — shared secret that gates the admin dashboard and auth-gated API routes (`POST /api/checkout-heatmap/config`, `DELETE /api/checkout-heatmap`). Set to any non-empty string; pass it as the `token=` query param when opening `/dashboard`. Lives in `.env.local` (gitignored). Never commit the real value.
 
 ## Config API behavior
 - `GET /api/landing-config`
@@ -40,18 +41,22 @@ npm run dev
 
 ## Heatmap
 
-All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor behaviour — clicks, mouse/finger movement, and scroll depth — and visualise it as selectable overlays: click dots (opacity-by-count), mouse-move trails, and scroll colour-by-depth (chosen via the type toggle on the heatmap page).
+All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor behaviour — clicks, mouse/finger movement, and scroll depth — and visualise it as selectable overlays: click dots (opacity-by-count), mouse-move trails, and scroll colour-by-depth (chosen via the `type` URL param on the heatmap page).
 
-- Click the **Heatmap** button in the top bar — it is a step dropdown; selecting a step opens that step's heatmap in a new tab.
+- Open the **admin dashboard** at `/dashboard?token=<DASHBOARD_TOKEN>` — use the **Heatmap** section to select a step, view, and type, then click **Open heatmap** to open that step's heatmap in a new tab; use the **Data** section to clear all captured data.
 - Append `?m1HeatmapTest=1` to the checkout URL to activate the 2-second inactivity threshold for automated testing (default is 30 seconds).
-- Click **Clear data** to reset stored sessions.
 - The heatmap view is available at `/checkout/[sku]/heatmap?step=<step>&view=desktop_view` (or `?view=mobile_view`), where `<step>` is `personal-info` (default), `delivery`, or `pay`.
+
+### Admin dashboard
+- `/dashboard?token=<DASHBOARD_TOKEN>` — single-page admin UI (Data / Heatmap / Report sections). Secret-link auth via `DASHBOARD_TOKEN`.
 
 ### Heatmap API routes
 - `GET /api/checkout-heatmap` — read all stored sessions
 - `POST /api/checkout-heatmap` — append a finalised session (legacy; kept for back-compat, no longer called by the client since M4 Part 2)
-- `DELETE /api/checkout-heatmap` — clear all stored sessions
+- `DELETE /api/checkout-heatmap` — clear all stored sessions (auth-gated; requires `Authorization: Bearer <DASHBOARD_TOKEN>`)
 - `POST /api/checkout-heatmap/ingest` — batched ingestion; body `{ session, events[] }`. The capture client streams events here (interval/size flush + `sendBeacon` on unload) instead of a finalize-only POST
+- `GET /api/checkout-heatmap/config` — read the active capture config (steps, event types, sampling rate, capture window, inactivity threshold). Public; the capture client calls this on every visit
+- `POST /api/checkout-heatmap/config` — upsert capture config (dashboard Save). Auth-gated; requires `Authorization: Bearer <DASHBOARD_TOKEN>`
 - `GET /api/checkout-heatmap/query?step=&view=&from=&to=` — read-only query, filtered by step / view / timeframe
 - `POST /api/checkout-heatmap/cleanup` — TTL/archival cleanup; body `{ before }` (ISO cutoff) or `{ ttlDays }` (default 30)
 - `POST /api/checkout-heatmap/sweep` — lazy/derived finalize; marks stale unfinalized sessions `abandoned` after the grace window; body `{ now?, force? }` (tests/manual checks pass `force: true` to skip the age check)

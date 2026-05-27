@@ -216,6 +216,36 @@ M5 introduces a login step that creates visitor identity. Integration-facing cha
 - Resume-within-X applies to logged-in visitors. Login does not break resume — if a logged-in visitor leaves Personal Info and returns within X, the same session resumes with visitor attribution intact.
 - POC supports basic returns only (reload/reopen tab). Real product supports multiple external return paths — drop-off email link, "my orders" screen, and other host-defined paths (see "Session resume and external re-entry" above).
 
+## M6 integration-ready state
+
+M6 added the admin dashboard, runtime config store, outcome-model unification, and removed heatmap controls from the live Shop. Integration-facing changes:
+
+### New API contracts (M6)
+
+- `GET /api/checkout-heatmap/config`
+  - Purpose: read the active heatmap capture config (steps enabled/disabled, event types, sampling rate, capture window, inactivity threshold). **Public — no auth required.** The capture client calls this on every visit to gate capture at runtime.
+  - Returns: `{ steps, eventTypes, elementTypes, samplingRate, captureWindow: { from, to }, inactivityMs }`. When no row exists, returns the default config (all steps on, all event types on, `samplingRate: 1`, `captureWindow: { from: null, to: null }`, `inactivityMs: 30000`) — fails-open so a missing config never silently loses capture.
+  - Status: stable for the POC; no pagination or versioning needed at POC volume.
+- `POST /api/checkout-heatmap/config`
+  - Purpose: upsert the runtime config (dashboard Save). **Auth-gated** — requires `Authorization: Bearer <DASHBOARD_TOKEN>` header; returns 401 otherwise.
+  - Body: partial config object; only provided fields are updated (upsert semantics).
+  - Status: provisional POC admin contract.
+- `DELETE /api/checkout-heatmap` is now **auth-gated** (same `DASHBOARD_TOKEN` bearer token). Clear-data is only exposed through the dashboard confirmation flow; visitors cannot trigger it.
+
+### Configurable rules (M6)
+
+- **Drop-off threshold (`inactivityMs`):** previously a hardcoded default, now **admin-editable** through the dashboard. Stored as `config.inactivityMs` (ms); dashboard offers presets (10s / 30s / 1m / 2m / 5m), defaulting to `30000`. Persisted per-session in the existing `inactivity_ms` column so the server sweep finalizes at the configured idle time. An explicit `inactivityMs` prop or the `m1HeatmapTest=1` automation override still takes precedence (tests are unaffected). Expected to vary by host product.
+- **Sampling gate (per-session, M6 change):** the per-visitor `m1.heatmap.sampled` cookie was removed. Each session (one step visit) now flips its own coin at the effective sampling rate — the product measures per-step conversion, not whole journeys. Rate precedence: `heatmapSampleRate` query param → runtime dashboard config → `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` env → default `1` (100%); 0%/100% deterministic, intermediate rates are client-side probabilistic. This is a **breaking change to the per-visitor sampling contract**: any external system that relied on the `m1.heatmap.sampled` cookie to coordinate sampling decisions must be updated.
+- **Step / event-type / element-type toggles:** capture on a given step or for a given event/element type can now be turned off at runtime without a code deploy. These are enforced server-side at ingest (not just client-side), so they are reliable even if the capture client is cached.
+
+### Auth seam (M6)
+
+A `DASHBOARD_TOKEN` environment variable (any non-empty string) gates admin actions. The token is validated server-side by `lib/prototype/dashboardAuth.js` (`isAuthorizedToken`), which does a length-safe constant-time compare. Revocation = rotate the env var. This is a **shared-secret / secret-link pattern** (POC grade); the M8 integration replaces it with real account-based auth / RBAC. Any external caller of auth-gated routes (`POST /api/checkout-heatmap/config`, `DELETE /api/checkout-heatmap`) must supply the bearer token.
+
+### Shop header controls removed (M6 P6)
+
+The Heatmap step dropdown and Clear-data button that previously lived in the Shop's top bar (`components/prototype/TopBar.jsx`, `showM1Actions` block) were **deleted**. The live Shop now renders with no heatmap or admin UI visible to visitors. All admin entry points live solely in the dashboard (`/dashboard?token=`). Any external integration that assumed the Shop top bar exposed heatmap navigation links must be updated to use the dashboard instead.
+
 ## Milestone maintenance rule
 
 At the end of each milestone, this document must be reviewed and updated to reflect:

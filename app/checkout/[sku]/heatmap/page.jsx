@@ -247,54 +247,28 @@ function CheckoutHeatmapContent() {
     return () => { document.getElementById("m1-mobile-heatmap-overrides")?.remove(); };
   }, [isMobileView, mobileViewportWidth]);
 
+  const topBarRight = (
+    <div className="text-right">
+      <div className="text-sm font-semibold leading-none" data-heatmap-step-label>{STEP_LABELS[selectedStep]}</div>
+      <div className="mt-0.5 text-xs text-slate-500" data-heatmap-stats>
+        {selectedView} · <span data-heatmap-session-count>{viewSessions.length}</span> sessions · {layerCountLabel}
+        {selectedType === "clicks"
+          ? ` · radius ${CHECKOUT_HEATMAP_CONFIG.minRadiusPx}px–${CHECKOUT_HEATMAP_CONFIG.maxRadiusPx}px`
+          : ""}
+        {isMobileView ? ` · ${mobileViewportWidth}px viewport` : ""}
+        {loading ? " · loading" : ""}
+      </div>
+    </div>
+  );
+
   return (
     <main className="min-h-screen bg-[#f6f7fb] text-[#111827]">
-      <div className="sticky top-0 z-[60] border-b bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">{STEP_LABELS[selectedStep]} heatmap</h1>
-              <div className="mt-1 text-xs text-slate-500" data-heatmap-stats>
-                {selectedView} - <span data-heatmap-session-count>{viewSessions.length}</span> sessions - {layerCountLabel}
-                {selectedType === "clicks"
-                  ? ` - radius ${CHECKOUT_HEATMAP_CONFIG.minRadiusPx}px-${CHECKOUT_HEATMAP_CONFIG.maxRadiusPx}px`
-                  : ""}
-                {isMobileView ? ` - ${mobileViewportWidth}px viewport` : ""}
-                {loading ? " - loading" : ""}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:pt-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <ViewLink sku={sku} step={selectedStep} view={CHECKOUT_HEATMAP_VIEWS.DESKTOP} selectedView={selectedView} type={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
-                  Desktop
-                </ViewLink>
-                <ViewLink sku={sku} step={selectedStep} view={CHECKOUT_HEATMAP_VIEWS.MOBILE} selectedView={selectedView} type={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
-                  Mobile
-                </ViewLink>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2" data-heatmap-type-toggle>
-                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="clicks" selectedType={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
-                  See clicks
-                </TypeLink>
-                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="moves" selectedType={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
-                  See mouse moves
-                </TypeLink>
-                <TypeLink sku={sku} step={selectedStep} view={selectedView} type="scrolls" selectedType={selectedType} outcome={selectedOutcome} from={selectedFrom} to={selectedTo}>
-                  See scrolls
-                </TypeLink>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <ShopFrame
         showChat
         heatmapPoints={selectedType === "clicks" ? points : null}
         overlay={overlay}
         topBarNote={selectedType === "moves" ? <MovesNote isMobileView={isMobileView} /> : null}
+        topBarRight={topBarRight}
         forcedWidth={forcedWidth}
       >
         <div className="pointer-events-none">
@@ -361,45 +335,6 @@ function MovesNote({ isMobileView }) {
       </span>
     </div>
   );
-}
-
-function toggleClassName(active) {
-  return [
-    "inline-flex h-10 items-center rounded-2xl border px-3 text-xs font-semibold shadow-sm",
-    active ? "border-[#0B1A33] bg-[#0B1A33] text-white" : "bg-white text-slate-800 hover:bg-slate-50",
-  ].join(" ");
-}
-
-function ViewLink({ sku, step, view, selectedView, type, outcome, from, to, children }) {
-  const active = view === selectedView;
-  return (
-    <a href={buildHeatmapHref({ sku, step, view, type, outcome, from, to })} className={toggleClassName(active)}>
-      {children}
-    </a>
-  );
-}
-
-function TypeLink({ sku, step, view, type, selectedType, outcome, from, to, children }) {
-  const active = type === selectedType;
-  return (
-    <a href={buildHeatmapHref({ sku, step, view, type, outcome, from, to })} className={toggleClassName(active)} data-heatmap-type={type}>
-      {children}
-    </a>
-  );
-}
-
-// `type` rides in the URL alongside step/view. Clicks (the default) emits no
-// `type` param, so a bare heatmap URL renders the click view. M6 P5 adds
-// `outcome` and timeframe `from`/`to` so toggling view/type preserves filters.
-function buildHeatmapHref({ sku, step, view, type, outcome, from, to }) {
-  const params = new URLSearchParams();
-  params.set("step", step);
-  params.set("view", view);
-  if (type === "moves" || type === "scrolls") params.set("type", type);
-  if (outcome && outcome !== "all") params.set("outcome", outcome);
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  return `/checkout/${encodeURIComponent(sku)}/heatmap?${params.toString()}`;
 }
 
 function readView(value) {

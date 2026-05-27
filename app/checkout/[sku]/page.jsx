@@ -7,7 +7,6 @@ import { CheckoutFlow } from "../../../components/prototype/CheckoutFlow";
 import {
   ShopFrame,
   getCheckoutHref,
-  getCheckoutHeatmapHref,
   getDetailsHref,
   getThankYouHref,
   useCatalogItem,
@@ -64,7 +63,7 @@ function CheckoutRouteContent() {
   });
 
   return (
-    <ShopFrame isTour={isTour} showChat heatmapHref={getCheckoutHeatmapHref(item?.sku || sku || "001")}>
+    <ShopFrame isTour={isTour} showChat>
       {loading ? (
         <div className="py-24 text-sm text-muted-foreground">Loading checkout...</div>
       ) : !item ? (

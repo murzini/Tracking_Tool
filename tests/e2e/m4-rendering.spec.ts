@@ -112,9 +112,8 @@ test("Test 39 — mouse-move heatmap renders trails; default view stays on click
   // The clicks view forces the expanded layout (validation on) so error-clicks anchor.
   await expect(page.getByText("Required field").first(), "clicks view forces the validation errors").toBeVisible();
 
-  // Switch to mouse moves via the type toggle → trails render directly (one style).
-  await page.getByRole("link", { name: "See mouse moves" }).click();
-  await page.waitForURL(/type=moves/, { timeout: 10000 });
+  // Switch to mouse moves by navigating directly (toggle buttons removed in M6 P6).
+  await openHeatmap(page, "&type=moves");
   await expect(page.locator("[data-heatmap-style-toggle]"), "the style row is gone — each type has one style").toHaveCount(0);
   const trails = page.locator('[data-heatmap-layer="mouse-moves"][data-heatmap-style="trails"]');
   await expect(trails, "trails overlay must render on the surface").toBeVisible({ timeout: 15000 });

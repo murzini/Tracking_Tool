@@ -133,45 +133,39 @@ test("[desktop] zero-interaction visits bounce; interaction sessions store event
   expect(dataB.sessions[0].step, "Scenario B: stored session must be tagged with the personal-info step").toBe("personal-info");
 });
 
-// ─── Test 3 — Heatmap step dropdown opens the selected step in a new tab ──────
+// ─── Test 3 — Dashboard Heatmap section opens the selected step in a new tab ──
 
-test("[desktop] heatmap step dropdown opens the selected step in a new tab", async ({ page, context }) => {
+test("[desktop] dashboard heatmap open button opens the selected step in a new tab", async ({ page, context }) => {
   const EVIDENCE = "test-results/M2 - Heatmap step dropdown/Check evidence";
   ensureDir(EVIDENCE);
 
-  await navigateToPersonalInfo(page);
+  await page.goto("/dashboard?token=m6-dev-token");
+  await page.waitForLoadState("networkidle");
 
-  // Clicking Heatmap now opens a dropdown listing every step (not a tab directly).
-  await page.getByRole("button", { name: /heatmap/i }).click();
+  // Select "Choose Delivery" in the Heatmap section step dropdown.
+  await page.locator("[data-dashboard-heatmap-step]").selectOption("delivery");
+  await page.screenshot({ path: `${EVIDENCE}/dashboard.png` });
 
-  const menu = page.getByRole("menu", { name: /open heatmap for step/i });
-  await expect(menu, "the Heatmap button must open a step dropdown").toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Personal Information" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Choose Delivery" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Pay & Finish" })).toBeVisible();
-  await page.screenshot({ path: `${EVIDENCE}/dropdown.png` });
-
-  // Selecting a step opens that step's heatmap in a new tab.
+  // Click "Open heatmap" — it opens in a new tab.
   const newTabPromise = context.waitForEvent("page");
-  await page.getByRole("menuitem", { name: "Choose Delivery" }).click();
+  await page.locator("[data-dashboard-heatmap-open]").click();
   const newTab = await newTabPromise;
   await newTab.waitForLoadState("networkidle");
 
   const newTabUrl = newTab.url();
   console.log(`  New tab URL: ${newTabUrl}`);
-  console.log(`  Original tab URL: ${page.url()}`);
+  console.log(`  Dashboard URL: ${page.url()}`);
 
-  // Evidence
-  await page.screenshot({ path: `${EVIDENCE}/checkout-tab.png` });
+  await page.screenshot({ path: `${EVIDENCE}/dashboard-tab.png` });
   await newTab.screenshot({ path: `${EVIDENCE}/heatmap-tab.png` });
 
   expect(newTabUrl, "New tab URL must open the selected step's heatmap").toContain("/heatmap?step=delivery");
-  expect(page.url(), "Original tab must still be on the checkout page").toContain("/checkout");
+  expect(page.url(), "Dashboard must remain open").toContain("/dashboard");
 });
 
-// ─── Test 2 — Clear data removes stored history ──────────────────────────────
+// ─── Test 2 — Clear data via dashboard removes stored history ─────────────────
 
-test("[desktop] clear data button removes all stored sessions", async ({ page }) => {
+test("[desktop] clear data via dashboard removes all stored sessions", async ({ page }) => {
   const EVIDENCE = "test-results/Test 2 - Clear data removes history/Check evidence";
   ensureDir(EVIDENCE);
 
@@ -190,26 +184,30 @@ test("[desktop] clear data button removes all stored sessions", async ({ page })
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${EVIDENCE}/before-clear.png` });
 
-  // Click the Clear data button
-  await page.getByRole("button", { name: /clear data/i }).click();
-  await page.waitForTimeout(500);
+  // Use the dashboard Clear-data confirmation flow.
+  await page.goto("/dashboard?token=m6-dev-token");
+  await page.waitForLoadState("networkidle");
+  await page.locator("[data-dashboard-clear-data]").click();
+  await expect(page.locator("[data-dashboard-confirm-overlay]")).toBeVisible();
+  await page.locator("[data-dashboard-confirm-clear]").click();
+  await expect(page.locator("[data-dashboard-confirm-overlay]")).not.toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("All data cleared")).toBeVisible({ timeout: 5000 });
 
-  // Reload heatmap page to show fresh state, then verify stats and take after screenshot
+  // Reload heatmap page and verify stats show 0 sessions.
   await page.goto(HEATMAP_URL);
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(500);
 
-  const statsText = await page.locator("div.text-xs.text-slate-500").first().textContent();
-  console.log(`  Post-clear heatmap stats: ${statsText}`);
-  expect(statsText, "Heatmap stats must show 0 sessions after clear").toContain("0 sessions");
+  const sessionCount = await page.locator("[data-heatmap-session-count]").textContent();
+  console.log(`  Post-clear heatmap session count: ${sessionCount}`);
+  expect(sessionCount, "Heatmap stats must show 0 sessions after clear").toBe("0");
 
   await page.screenshot({ path: `${EVIDENCE}/after-clear.png` });
 
-  // Verify API returns 0 sessions
+  // Verify API returns 0 sessions.
   const resPost = await page.request.get("/api/checkout-heatmap");
   const dataPost = await resPost.json();
   console.log(`  Post-clear: sessions stored = ${dataPost.sessions.length}`);
-
   expect(dataPost.sessions.length, "After clear: API must return 0 sessions").toBe(0);
 });
 

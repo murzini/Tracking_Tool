@@ -199,7 +199,7 @@ test("Test 18 — captured delivery click is rendered as a dot in the step heatm
   await page.goto("/checkout/001/heatmap?step=delivery&view=desktop_view");
   await page.waitForLoadState("networkidle");
 
-  await expect(page.locator("h1"), "the viewer must render the delivery step").toContainText("Choose Delivery");
+  await expect(page.locator("[data-heatmap-step-label]"), "the viewer must render the delivery step").toContainText("Choose Delivery");
   await expect(
     page.locator('[title="1 click"]').first(),
     "a dot must be rendered for the captured delivery click"
@@ -212,7 +212,7 @@ test("Test 18 — captured pay click is rendered as a dot in the step heatmap", 
   await page.goto("/checkout/001/heatmap?step=pay&view=desktop_view");
   await page.waitForLoadState("networkidle");
 
-  await expect(page.locator("h1"), "the viewer must render the pay step").toContainText("Pay & Finish");
+  await expect(page.locator("[data-heatmap-step-label]"), "the viewer must render the pay step").toContainText("Pay & Finish");
   await expect(
     page.locator('[title="1 click"]').first(),
     "a dot must be rendered for the captured pay click"

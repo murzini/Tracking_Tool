@@ -20,6 +20,8 @@ Current implemented focus:
 - M2 Part 4: step-aware heatmap viewer. The single heatmap route is now driven by `?step=` (`resolveCheckoutHeatmapStep`); it filters sessions to the requested step + view, renders that step's `CheckoutFlow` fully-expanded, and titles itself per step. The `TopBar` Heatmap button is now a step dropdown (Personal Information / Choose Delivery / Pay & Finish) that opens the selected step's heatmap in a new tab. The Pay step's conditional card/wire panels are forced open in `heatmapMode` so all pay elements resolve.
 - M3 (Parts 1–4): storage moved from the local JSON file to Neon Postgres (`sessions` + `events` tables) behind the unchanged `GET / POST / DELETE /api/checkout-heatmap` contract. `clicks[]` is generalised to `events[]` (a click is `type:"click"` with its payload in a JSONB `detail` column); session-level `outcome` and `samplingRate` fields added (scaffolding mostly written from M4). A read-only query API (`GET /api/checkout-heatmap/query`) and a TTL cleanup endpoint (`POST /api/checkout-heatmap/cleanup`) were added. DB client + schema selection in `lib/prototype/db.js` (`HEATMAP_DB_SCHEMA`, default `public`; tests use `heatmap_test`). Scale/ingestion/sampling design is in `Documentation/SCALE_DESIGN.md` (Part 5, design-only). M3 closed 2026-05-22.
 - M4 Part 1: interactive step navigation — the checkout CTA advances step→step in normal mode with a single click. M4 Part 2: batched ingestion pipe (`/api/checkout-heatmap/ingest`, multi-row INSERT) + visitor-level sampling gate (cookie, 100% default); click capture routed through a client ring buffer with interval/size/unload flush; legacy `POST` kept but no longer client-called. M4 Part 3: capture extended beyond clicks to desktop `mouse-move` (throttled ~100 ms) and `scroll` depth, streamed through the same pipe; events are polymorphic (per-`type` normalization) but the default click heatmap is unchanged because aggregation still filters click/tap. M4 Part 4: field focus/blur/change (no raw values), validation-error-shown, and element visibility (IntersectionObserver, ≥50%) captured. M4 Part 5: session lifecycle signals — `localStorage` session resume within window X, lazy/derived finalize via a sweep endpoint (no always-on runtime), zero-interaction bounce committed on the exit beacon, `exit_reason` (`idle`/`nav-click`/`back`/`left-browser`), active/idle step timing, and `advanced`/`completed` outcomes on step navigation; a post-suite `heatmap_test` wipe. M4 Part 6: rendering — mouse-move (density/trails) and scroll (fold/gradient) overlays behind a nested type→style toggle, plus the stored `in-progress` outcome. M4 Part 7: mobile finger-movement capture (`touchmove` → `mouse-move`), rendered in the "See mouse moves" view with a mobile disclaimer. M4 Part 8 port (Chunks A–F): the chosen single style per type — click dots opacity-by-count, scroll green colour-by-depth + legend, mouse-move volume-aware trails with a floating-elements note in an optional top-bar slot; the density/fold-line overlays and the style toggle removed; throwaway sim pages deleted; suite 53/53.
+- M5: lightweight login step inserted before Personal Information; `visitor_id` UUID minted on login completion and tagged to all subsequent sessions (`lib/prototype/checkoutVisitorId.js`); login gate enforced in `resolveStep`.
+- M6 (Parts 1–6): outcome model unified (`advanced`→`completed`); runtime config store + API (`heatmap_config` Postgres table, `GET`/`POST /api/checkout-heatmap/config`); capture reads runtime config (step/event-type/sampling gates); admin dashboard (`/dashboard`, secret-link auth); viewer outcome filter (`?outcome=drop-offs|completers`) and timeframe filter (`?from=&to=`); Shop header controls removed — Heatmap and Clear-data moved to `/dashboard`.
 
 ## High-level architecture
 
@@ -53,7 +55,7 @@ The architecture has five main parts. (M1 introduced them on the Personal Inform
 1. The visitor opens a checkout step (`personal-info`, `delivery`, or `pay`); the active step is passed explicitly to the capture client.
 2. A session starts — or resumes, if the visitor returned within window X; the sampling gate decides whether capture runs at all.
 3. Interactions append to a client ring buffer (clicks, mouse/finger movement, scroll depth, field events, validation errors, visibility) and flush in batches to the ingest endpoint.
-4. Completing the step marks the session `advanced`/`completed`; inactivity past the threshold — or a zero-interaction exit — is a drop-off.
+4. Completing the step marks the session `completed`; inactivity past the threshold — or a zero-interaction exit — is a drop-off.
 5. Finalize is lazy/derived: a sweep marks stale unfinalized sessions `abandoned` with an exit reason. Persisted sessions live in Postgres.
 
 ### Heatmap rendering flow
@@ -80,7 +82,7 @@ Primary files:
 Responsibility:
 - render the current Shop experience
 - host the Personal Information step
-- expose header actions such as `Heatmap` and `Clear data`
+- heatmap and admin controls were moved to `/dashboard` in M6 and no longer appear in the live Shop
 
 ### Heatmap domain logic
 
@@ -111,6 +113,9 @@ Primary files:
 - `app/api/checkout-heatmap/sweep/route.js` (M4 Part 5: lazy/derived finalize — marks stale unfinalized sessions `abandoned`)
 - `lib/prototype/checkoutHeatmapStore.server.js` (M3: Neon Postgres store; M4 Part 2: `ingestCheckoutHeatmapBatch`; M4 Part 5: `sweepCheckoutHeatmapSessions`)
 - `lib/prototype/db.js` (M3: Neon client + `HEATMAP_DB_SCHEMA` selection)
+- `lib/prototype/heatmapConfigStore.server.js` (M6 Part 2: runtime config store — `getHeatmapConfig`/`saveHeatmapConfig`/defaults)
+- `lib/prototype/dashboardAuth.js` (M6 Part 2: token validation for auth-gated routes)
+- `app/api/checkout-heatmap/config/route.js` (M6: public `GET` / auth-gated `POST`/`DELETE` for runtime config)
 
 Responsibility:
 - read finalized sessions
@@ -150,8 +155,9 @@ Primary files:
 - `tests/e2e/m5-login.spec.ts` — Tests 45–48 (M5: login step renders + gate enforced; empty name blocks Continue; valid name advances to PI + writes visitor_id; sessions carry visitor_id; second login mints different visitor_id)
 - `tests/e2e/m6-config.spec.ts` — Tests 49–53 (M6 P2+P3: config GET defaults; POST saves with valid token / 401 without; step disabled → 0 sessions; mouse-move disabled → 0 mouse-move events; samplingRate=0 → 0 sessions)
 - `tests/e2e/m6-dashboard.spec.ts` — Test 54 (M6 P4: dashboard auth gate wrong/missing token → blocked; valid token renders Data/Heatmap/Report sections; step toggle + Save persists via config API; Clear-data confirmation wipes all sessions)
-- Test 3 (`m1-heatmap.spec.ts`) updated in Part 4 to assert the Heatmap step dropdown; Test 1 Scenario A updated in Part 5 (zero-interaction now bounces)
-- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. M6 P4 added Test 54. Full suite: 64 active tests passing.
+- `tests/e2e/m6-heatmap-viewer.spec.ts` — Tests 55–56 (M6 P5: viewer outcome filter — drop-offs/completers/all each show the correct session count; viewer timeframe filter — out-of-range from/to shows 0 sessions)
+- Tests 2 and 3 (`m1-heatmap.spec.ts`) rewritten in M6 P6: Test 2 uses the dashboard Clear-data confirmation flow; Test 3 uses the dashboard Heatmap section to open the viewer (the TopBar Heatmap dropdown and Clear-data button were removed from the live Shop).
+- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. M6 P4 added Test 54. M6 P5 added Tests 55–56. Full suite: 66 active tests passing.
 
 Responsibility:
 - verify milestone behavior
@@ -161,9 +167,10 @@ Responsibility:
 ## Current configurable rules
 
 Important current configurable rules include:
-- inactivity threshold
-- heatmap radius bounds
-- view breakpoint classification
+- inactivity threshold (code constant `CHECKOUT_HEATMAP_CONFIG.manualInactivityMs` = 30 000 ms; also admin-configurable via the dashboard — stored in `heatmap_config.config.inactivityMs`, default 30 000 ms)
+- heatmap radius bounds (code constants `minRadiusPx` = 6 px, `maxRadiusPx` = 24 px)
+- view breakpoint classification (code constant `BREAKPOINTS.DESKTOP` = 1024 px)
+- admin-configurable capture gates: per-step enable/disable, per-event-type enable/disable, sampling rate (`samplingRate` 0–1) — stored in `heatmap_config`, editable via the dashboard
 
 These values must remain explicit because they are likely to evolve across milestones or future integrations.
 
@@ -510,7 +517,7 @@ Anticipated M5 debt identified at planning: `visitor_id` in localStorage (POC st
 
 ## M6 architecture — admin dashboard
 
-**Status: IN PROGRESS — Parts 1–3 done (2026-05-27): outcome-model unification (P1); runtime config store + API (P2); capture reads runtime config with server-side ingest gate (P3). Parts 4–6 to follow.** Scope frozen + fully specified (`PRODUCT_OVERVIEW.md` → M6 → "Decisions agreed (2026-05-27)"). This section is the architecture + phased implementation plan required by the `milestone-start` gate. Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6). The test plan is produced separately by `milestone-test-planning`; this section names the known test impacts so that plan can account for them.
+**Status: CLOSED — All 6 parts done (2026-05-27): outcome-model unification (P1); runtime config store + API (P2); capture reads runtime config with server-side ingest gate (P3); dashboard UI — Data/Heatmap/Report (P4); viewer outcome filter + timeframe (P5); Shop header controls removed, stats moved to viewer topBarRight, TopBar `showM1Actions` block deleted (P6). Suite: 66/66 tests passing.** Scope frozen + fully specified (`PRODUCT_OVERVIEW.md` → M6 → "Decisions agreed (2026-05-27)"). This section is the architecture + phased implementation plan required by the `milestone-start` gate. Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6). The test plan is produced separately by `milestone-test-planning`; this section names the known test impacts so that plan can account for them.
 
 ### Goal and boundaries
 

@@ -104,7 +104,7 @@ async function getStoredSessions(page: Page) {
   return (data.sessions ?? []) as { step?: string }[];
 }
 
-test("Test 19 — step-aware viewer shows only the requested step's sessions and toggles view", async ({ page }) => {
+test("Test 19 — step-aware viewer shows only the requested step's sessions and filters by view", async ({ page }) => {
   const EVIDENCE = "test-results/M2 Test 19 - Step-aware viewer/Check evidence";
   fs.mkdirSync(EVIDENCE, { recursive: true });
 
@@ -135,9 +135,9 @@ test("Test 19 — step-aware viewer shows only the requested step's sessions and
     await page.goto(`/checkout/001/heatmap?step=${step}&view=desktop_view`);
     await page.waitForLoadState("networkidle");
 
-    await expect(page.locator("h1"), `${step}: viewer must be titled for the step`).toContainText(title);
+    await expect(page.locator("[data-heatmap-step-label]"), `${step}: viewer must be titled for the step`).toContainText(title);
     await expect(
-      page.locator("div.text-xs.text-slate-500").first(),
+      page.locator("[data-heatmap-stats]").first(),
       `${step}: only this step's single session must be shown`
     ).toContainText("1 sessions", { timeout: 15000 });
     await expect(
@@ -147,16 +147,14 @@ test("Test 19 — step-aware viewer shows only the requested step's sessions and
     await page.screenshot({ path: `${EVIDENCE}/${step}-desktop.png` });
   }
 
-  // The desktop/mobile toggle lives inside the viewer and preserves the step.
-  await page.goto(`/checkout/001/heatmap?step=delivery&view=desktop_view`);
+  // View is selected by URL param (the in-viewer toggle was removed in M6 P6).
+  await page.goto(`/checkout/001/heatmap?step=delivery&view=mobile_view`);
   await page.waitForLoadState("networkidle");
-  await page.getByRole("link", { name: "Mobile" }).click();
-  await page.waitForURL(/view=mobile_view/, { timeout: 10000 });
 
-  expect(page.url(), "toggling to mobile must preserve the active step").toContain("step=delivery");
+  expect(page.url(), "the mobile view must preserve the active step").toContain("step=delivery");
   // Sessions were captured at desktop, so the mobile view of this step shows none.
   await expect(
-    page.locator("div.text-xs.text-slate-500").first(),
+    page.locator("[data-heatmap-stats]").first(),
     "mobile view of a desktop-captured step must show 0 sessions"
   ).toContainText("0 sessions", { timeout: 15000 });
   await page.screenshot({ path: `${EVIDENCE}/delivery-mobile-toggle.png` });

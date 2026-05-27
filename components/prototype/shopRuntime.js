@@ -223,7 +223,7 @@ export function TourShield() {
   );
 }
 
-export function ShopFrame({ children, isTour = false, showChat = false, heatmapHref, heatmapPoints = null, overlay = null, topBarNote = null, forcedWidth = null, hideTopBar = false }) {
+export function ShopFrame({ children, isTour = false, showChat = false, heatmapPoints = null, overlay = null, topBarNote = null, topBarRight = null, forcedWidth = null, hideTopBar = false }) {
   const router = useRouter();
   const hasHeatmapPoints = Array.isArray(heatmapPoints);
   // M4 Part 6: the non-click heatmap views (mouse-move density/trails, scroll
@@ -233,7 +233,7 @@ export function ShopFrame({ children, isTour = false, showChat = false, heatmapH
 
   return (
     <div className="min-h-screen bg-[#f6f7fb]" data-checkout-heatmap-surface="shop-frame">
-      {hideTopBar ? null : <TopBar onGoHome={() => router.push("/")} heatmapHref={heatmapHref} note={topBarNote} />}
+      {hideTopBar ? null : <TopBar onGoHome={() => router.push("/")} note={topBarNote} rightContent={topBarRight} />}
       {isTour ? <TourShield /> : null}
       <div
         className={`${forcedWidth ? "mx-auto" : "mx-auto max-w-6xl"} px-4 py-6 ${hasHeatmapPoints || hasOverlay ? "relative" : ""}`}
