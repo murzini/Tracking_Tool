@@ -48,7 +48,7 @@ All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor beh
 - The heatmap view is available at `/checkout/[sku]/heatmap?step=<step>&view=desktop_view` (or `?view=mobile_view`), where `<step>` is `personal-info` (default), `delivery`, or `pay`.
 
 ### Admin dashboard
-- `/dashboard?token=<DASHBOARD_TOKEN>` — single-page admin UI (Data / Heatmap / Report sections). Secret-link auth via `DASHBOARD_TOKEN`.
+- `/dashboard?token=<DASHBOARD_TOKEN>` — single-page admin UI (Data / Heatmap / Simulation / Report sections). Secret-link auth via `DASHBOARD_TOKEN`. The Simulation section generates ~1500 synthetic sessions into a separate schema so you can preview the visualisations at volume without real traffic.
 
 ### Heatmap API routes
 - `GET /api/checkout-heatmap` — read all stored sessions
@@ -60,6 +60,9 @@ All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor beh
 - `GET /api/checkout-heatmap/query?step=&view=&from=&to=` — read-only query, filtered by step / view / timeframe
 - `POST /api/checkout-heatmap/cleanup` — TTL/archival cleanup; body `{ before }` (ISO cutoff) or `{ ttlDays }` (default 30)
 - `POST /api/checkout-heatmap/sweep` — lazy/derived finalize; marks stale unfinalized sessions `abandoned` after the grace window; body `{ now?, force? }` (tests/manual checks pass `force: true` to skip the age check)
+- `GET /api/checkout-heatmap/simulate` — count of simulated sessions in the sim schema (no auth required)
+- `POST /api/checkout-heatmap/simulate` — generate ~1500 synthetic sessions into the sim schema (auth-gated)
+- `DELETE /api/checkout-heatmap/simulate` — discard all simulated sessions (auth-gated)
 - `GET /api/db-status` — DB connectivity / schema inspection
 
 ## Running tests

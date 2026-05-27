@@ -44,6 +44,16 @@ export default async function globalTeardown() {
     await sql.query(`TRUNCATE TABLE "${schema}".sessions CASCADE`);
     await sql.query(`DELETE FROM "${schema}".heatmap_config`);
     console.log(`  [teardown] wiped "${schema}" schema (sessions + events)`);
+
+    // M6.1: also wipe the sim test schema so generated sessions never persist
+    // across runs. Guarded the same way — only ever touches heatmap_test_sim.
+    const simSchema = `${schema}_sim`;
+    try {
+      await sql.query(`TRUNCATE TABLE "${simSchema}".sessions CASCADE`);
+      console.log(`  [teardown] wiped "${simSchema}" schema (sessions + events)`);
+    } catch {
+      // sim schema may not exist yet on first run — non-fatal
+    }
   } catch (err) {
     console.log(`  [teardown] wipe failed: ${(err as Error).message}`);
   }

@@ -77,10 +77,11 @@ test("Test 54 — Dashboard auth gate, Data section renders, Save updates config
   await page.goto(DASHBOARD_URL);
   await page.waitForLoadState("networkidle");
 
-  // All three section headers must be visible.
+  // All four section headers must be visible (Data / Heatmap / Simulation / Report).
   const sections = page.locator("[data-dashboard-section]");
   await expect(sections.filter({ hasText: "Data" }).first()).toBeVisible();
   await expect(sections.filter({ hasText: "Heatmap" }).first()).toBeVisible();
+  await expect(sections.filter({ hasText: "Simulation" }).first()).toBeVisible();
   await expect(sections.filter({ hasText: "Report" }).first()).toBeVisible();
 
   // Data section shows the Save button.

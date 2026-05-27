@@ -468,3 +468,78 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 - **Test 19** (`m2-viewer.spec.ts`): `h1` and `div.text-xs.text-slate-500` assertions updated to use `[data-heatmap-step-label]` and `[data-heatmap-stats]`. Mobile toggle-link navigation replaced with direct URL `?view=mobile_view` navigation.
 - **Tests 18 render-half** (`m2-delivery-pay.spec.ts`): `h1` assertions replaced with `[data-heatmap-step-label]`.
 - **Test 39** (`m4-rendering.spec.ts`): `getByRole("link", { name: "See mouse moves" })` click replaced with `openHeatmap(page, "&type=moves")` direct navigation (in-viewer type toggle removed in P6).
+
+---
+
+## M6.1 — Heatmap Simulation Mode
+
+**Status: CLOSED (2026-05-28). All 3 parts delivered. 73/73 active tests passing.** Scope frozen 2026-05-28 (`PRODUCT_OVERVIEW.md` → Future Milestones → M6.1). Architecture in `ARCHITECTURE_OVERVIEW.md` → "M6.1 architecture". Test plan produced by `milestone-test-planning` 2026-05-28.
+**Suite:** kept 55 as-is, updated 1 (Test 54 — four dashboard sections), removed 0, added 7 new (Tests 57–63). New spec: `tests/e2e/m6-sim.spec.ts`.
+**Framework:** Playwright, against `localhost:3000`, Neon Postgres store, isolated runner (`HEATMAP_DB_SCHEMA=heatmap_test`).
+**Auth token (tests):** `DASHBOARD_TOKEN=m6-dev-token` in `.env.local`; tests use `Bearer m6-dev-token`.
+**Test-DB schemas:** real data in `heatmap_test`; sim data in `heatmap_test_sim`. Both are wiped by `global-teardown.ts` after the suite.
+**Infrastructure change (Part 3):** `tests/global-teardown.ts` must also truncate `heatmap_test_sim` after the suite, so simulated rows never persist across runs.
+
+### Keep as-is (55)
+
+Tests **1–53, 55–56** — simulation is additive and isolated. All real-data paths remain unchanged when no `source` param is present; no existing UI elements are removed or modified. Confirm the parameterized store still defaults to the base `SCHEMA` (a regression risk if a default arg is missed).
+
+### Update (1)
+
+**Test 54** (`m6-dashboard.spec.ts`) — dashboard now has **four** sections (Data / Heatmap / Simulation / Report). Update the visible-sections assertion to include `[data-dashboard-section="simulation"]`; change the count description from "three" to "four". No other assertion in Test 54 is affected.
+
+### Remove
+None.
+
+### New cases (Tests 57–63)
+
+All in `tests/e2e/m6-sim.spec.ts`.
+
+**Test 57 — GET /simulate returns session count**
+- `GET /api/checkout-heatmap/simulate` with no prior simulation → `{ count: 0 }` (or a response with `count` equal to 0).
+- `POST /simulate` (auth) to generate → `GET /simulate` → `count` > 1000.
+- Evidence: `test-results/M6.1 Test 57 - Simulate GET count/Check evidence/`
+
+**Test 58 — POST and DELETE /simulate require auth**
+- `POST /api/checkout-heatmap/simulate` no `Authorization` header → 401.
+- `POST /api/checkout-heatmap/simulate` with `Authorization: Bearer wrong-token` → 401.
+- `DELETE /api/checkout-heatmap/simulate` no auth → 401.
+- `DELETE /api/checkout-heatmap/simulate` wrong token → 401.
+- Evidence: `test-results/M6.1 Test 58 - Simulate auth gate/Check evidence/`
+
+**Test 59 — Generate writes only to the sim schema (isolation)**
+- Clear real data → seed 1 real session (via ingest with a valid payload).
+- `POST /api/checkout-heatmap/simulate` with valid token → 200.
+- `GET /api/checkout-heatmap` (no `source`) → exactly 1 session (real data untouched).
+- `GET /api/checkout-heatmap?source=sim` → count > 1000 (sim sessions exist).
+- Evidence: `test-results/M6.1 Test 59 - Generate isolation/Check evidence/`
+
+**Test 60 — Discard wipes sim data only; real data intact**
+- `POST /simulate` → confirm sim sessions exist (`GET ?source=sim` count > 0).
+- Seed 1 real session.
+- `DELETE /simulate` (auth) → 200.
+- `GET /api/checkout-heatmap?source=sim` → `count` = 0.
+- `GET /api/checkout-heatmap` (no source) → 1 real session still present.
+- Evidence: `test-results/M6.1 Test 60 - Discard isolation/Check evidence/`
+
+**Test 61 — Viewer renders sim data with source=sim; real heatmap unaffected**
+- Clear real data; `POST /simulate` → sim sessions generated.
+- Open `/checkout/001/heatmap?step=personal-info&source=sim` → `[data-heatmap-session-count]` > 1000 AND at least one click dot is rendered (click dots overlay present with data).
+- Open `/checkout/001/heatmap?step=personal-info` (no source) → `[data-heatmap-session-count]` = 0 (no real sessions seeded).
+- Evidence: `test-results/M6.1 Test 61 - Viewer sim source/Check evidence/`
+
+**Test 62 — Generated distribution is approximately correct (outcome mix)**
+- `POST /simulate` → `GET /api/checkout-heatmap?source=sim` → parse response.
+- Total session count is between 1400 and 1600.
+- Abandoned sessions ≥ 50% and ≤ 80% of total.
+- Completed sessions ≥ 20% and ≤ 50% of total.
+- At least one session carries `view: "desktop_view"` and at least one carries `view: "mobile_view"`.
+- Evidence: `test-results/M6.1 Test 62 - Generated distribution/Check evidence/`
+
+**Test 63 — Dashboard Simulation section: Generate, View Simulation, Discard**
+- Navigate to `/dashboard?token=m6-dev-token` → `[data-dashboard-section="simulation"]` visible.
+- Click **Generate** button (`[data-dashboard-sim-generate]`) → `[data-dashboard-sim-status]` updates to show a count > 1000 (not "No simulation data").
+- Click **View Simulation** button (`[data-dashboard-sim-view]`) → new tab opens; URL contains `source=sim` and `step=personal-info`.
+- Click **Discard** button (`[data-dashboard-sim-discard]`) → confirmation overlay appears → click confirm → overlay closes → `[data-dashboard-sim-status]` shows zero / "No simulation data".
+- `GET /api/checkout-heatmap` (no source) → real sessions count is unchanged (discard did not touch real data).
+- Evidence: `test-results/M6.1 Test 63 - Dashboard Simulation section/Check evidence/dashboard-sim.png`

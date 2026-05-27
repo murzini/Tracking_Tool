@@ -120,6 +120,7 @@ Tests run against the `heatmap_test` Postgres schema (same Neon DB). The playwri
 | M6 (Part 1) | Outcome model unified: `advanced` is removed, `completed` (instead of `advanced`) is the single success outcome meaning "completed this step" (applied uniformly). No schema change — existing `advanced` rows migrated to `completed` via idempotent UPDATE. |
 | M6 (Part 2) | New `heatmap_config` table (single-row, JSONB config). `GET /api/checkout-heatmap/config` (public), `POST` / `DELETE` (auth-gated with `DASHBOARD_TOKEN`). Defaults equal today's behavior so the table is purely additive. Global teardown wipes it alongside sessions. |
 | M6 (Part 3) | Capture gated by runtime config: client fetches config on init (fail-open background fetch; aborts if step/sampling/window gates fail); ingest endpoint rechecks config on every batch (authoritative, timing-independent) — drops session if step disabled or samplingRate=0, filters event array by disabled event types. No schema change. |
+| M6.1 | Sim schemas added: `heatmap_sim` (live) and `heatmap_test_sim` (test runner) created by `scripts/db-setup.mjs` with the same `sessions`/`events` tables + indexes as the base schemas. No `heatmap_config` table in the sim schemas (simulation ignores runtime config). Real-data schema (`public` / `heatmap_test`) is never read or written by simulation. Discard = `TRUNCATE` on the sim schema only. |
 
 ---
 

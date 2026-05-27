@@ -41,6 +41,8 @@ function CheckoutHeatmapContent() {
   const selectedOutcome = readOutcome(searchParams.get("outcome"));
   const selectedFrom = searchParams.get("from") ?? "";
   const selectedTo = searchParams.get("to") ?? "";
+  // `source=sim` directs the sessions fetch to the sim schema; default reads real data.
+  const source = searchParams.get("source") === "sim" ? "sim" : "real";
   const { item, loading: itemLoading } = useCatalogItem(sku);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,8 @@ function CheckoutHeatmapContent() {
     const loadSessions = async ({ initial = false } = {}) => {
       if (initial) setLoading(true);
       try {
-        const res = await fetch("/api/checkout-heatmap", { cache: "no-store" });
+        const url = source === "sim" ? "/api/checkout-heatmap?source=sim" : "/api/checkout-heatmap";
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json().catch(() => ({}));
         if (!alive) return;
@@ -83,7 +86,7 @@ function CheckoutHeatmapContent() {
       alive = false;
       if (intervalId) window.clearInterval(intervalId);
     };
-  }, []);
+  }, [source]);
 
   const viewSessions = useMemo(() => {
     let filtered = sessions.filter(

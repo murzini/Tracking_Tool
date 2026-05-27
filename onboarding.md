@@ -26,24 +26,20 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 ## Current state
 
-- **M1–M6 COMPLETE and signed off.** M6 (Admin Dashboard) closed 2026-05-27. All 6 parts done; 66/66 tests green. Per-milestone detail lives in `PRODUCT_OVERVIEW.md`.
-  - P6 delivered: `TopBar` `showM1Actions` block (Heatmap dropdown + Clear-data button) deleted; `ShopFrame` `topBarRight` prop replaces `heatmapHref`; viewer stats moved to `topBarRight`; in-viewer type/view toggle buttons removed; Tests 2/3 rewritten to dashboard path; `data-heatmap-step-label` + `data-heatmap-stats` attributes added.
-- **M6.1 — Heatmap Simulation Mode — FOLLOW-UP TO M6 (do AFTER M6, BEFORE M7).** Recorded in `PRODUCT_OVERVIEW.md` → "M6.1". Not scope-frozen; needs its own `milestone-start`.
-- **M6.2 — Unit Test Foundation — FOLLOW-UP TO M6 (do AFTER M6.1, BEFORE M7).** Recorded in `PRODUCT_OVERVIEW.md` → "M6.2". Add a Vitest unit-test layer over the durable pure-logic core (heatmap normalize/finalize/drop-off/timing, **sampling, capture window**, config defaults, scanner) — targeted, not blanket. Both P3/P4 bugs were exactly that kind of pure-logic bug e2e missed. Not scope-frozen; needs its own `milestone-start`. **Don't skip from M6 straight to M7 — sequence is M6 → M6.1 → M6.2 → M7.**
+- **M1–M6.1 COMPLETE and signed off.** M6.1 (Heatmap Simulation Mode) fully closed 2026-05-28. All 3 parts done; 73/73 tests green (Tests 57–63 new, Test 54 updated); all close gates met. Sim schema isolation, `resolveHeatmapSchema` allowlist, bulk insert, generator, `/simulate` routes, `?source=sim` viewer, and dashboard Simulation section all delivered.
+- **M6.2 — Unit Test Foundation — next.** Vitest unit-test layer over the pure-logic core. Not scope-frozen; needs its own `milestone-start`. **Sequence: M6 → M6.1 → M6.2 → M7.**
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Start M6.1 (Heatmap Simulation Mode) or M6.2 (Unit Test Foundation)** — run `milestone-start` against the chosen next milestone. Both are recorded in `PRODUCT_OVERVIEW.md`. M6.1 first per the documented sequence.
-
-Pre-requisite: `milestone-prereqs` returns READY.
+**Begin M6.2 — Unit Test Foundation.** Run `milestone-start` first to freeze scope and produce the test plan. Core targets: `checkoutHeatmapSampling.js`, `checkoutHeatmap.js` (session/event models), `checkoutHeatmapSimulator.js`, and `resolveHeatmapSchema` in `db.js`. Vitest, no DOM required.
 
 ## What to read first, in order
 
 1. `Documentation/AGENTS.md` — working rules + agent catalogue. Governs how all work is done.
-2. `Documentation/PRODUCT_OVERVIEW.md` — M6 closed; M6.1/M6.2 scope notes in "Future Milestones".
-3. `Documentation/TEST_CASES.md` → M6 — 66 tests; P6 existing-test updates documented.
-4. `Documentation/ARCHITECTURE_OVERVIEW.md` — M6 architecture CLOSED.
+2. `Documentation/PRODUCT_OVERVIEW.md` — M6.1 closed; M6.2 scope notes in "Future Milestones".
+3. `Documentation/TEST_CASES.md` → M6.1 — 73 tests; Tests 57–63 new, Test 54 updated.
+4. `Documentation/ARCHITECTURE_OVERVIEW.md` — M6.1 architecture CLOSED.
 
 **Reference — read as needed:**
 5. `Documentation/DATA.md` — Postgres schema (`sessions` + `events`); `exit_reason` semantics.

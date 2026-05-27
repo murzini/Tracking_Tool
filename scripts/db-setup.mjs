@@ -33,6 +33,7 @@ if (!DATABASE_URL) {
 
 const FRESH = process.argv.includes('--fresh');
 const SCHEMAS = ['public', 'heatmap_test'];
+const SIM_SCHEMAS = ['heatmap_sim', 'heatmap_test_sim'];
 const sql = neon(DATABASE_URL);
 
 async function run(query, label) {
@@ -40,7 +41,7 @@ async function run(query, label) {
   if (label) console.log(`  ✓ ${label}`);
 }
 
-async function setupSchema(schema) {
+async function setupSchema(schema, { skipConfig = false } = {}) {
   console.log(`\n── Schema: ${schema} ──`);
 
   if (schema !== 'public') {
@@ -94,14 +95,16 @@ async function setupSchema(schema) {
     'outcome migration: advanced→completed'
   );
 
-  // M6 Part 2: single-row runtime config table.
-  await run(`
-    CREATE TABLE IF NOT EXISTS "${schema}".heatmap_config (
-      id         INTEGER     PRIMARY KEY DEFAULT 1,
-      config     JSONB       NOT NULL DEFAULT '{}',
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `, 'heatmap_config table ready');
+  // M6 Part 2: single-row runtime config table (skipped for sim schemas — simulation ignores runtime config).
+  if (!skipConfig) {
+    await run(`
+      CREATE TABLE IF NOT EXISTS "${schema}".heatmap_config (
+        id         INTEGER     PRIMARY KEY DEFAULT 1,
+        config     JSONB       NOT NULL DEFAULT '{}',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `, 'heatmap_config table ready');
+  }
 
   await run(`
     CREATE TABLE IF NOT EXISTS "${schema}".events (
@@ -150,7 +153,11 @@ try {
   for (const schema of SCHEMAS) {
     await setupSchema(schema);
   }
-  console.log('\n✓ Done. Tables and indexes ready in: ' + SCHEMAS.join(', '));
+  for (const schema of SIM_SCHEMAS) {
+    await setupSchema(schema, { skipConfig: true });
+  }
+  const all = [...SCHEMAS, ...SIM_SCHEMAS];
+  console.log('\n✓ Done. Tables and indexes ready in: ' + all.join(', '));
 } catch (err) {
   console.error('\nSetup failed:', err.message);
   process.exit(1);

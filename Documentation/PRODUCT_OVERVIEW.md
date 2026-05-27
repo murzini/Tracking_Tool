@@ -17,9 +17,9 @@
 
 *Quick orientation so the live state isn't buried in the decision log below. For session-to-session continuity, see the repo-root `onboarding.md`.*
 
-- **Last closed: M6 — Admin Dashboard (2026-05-27).** All 6 parts done. Suite: 66/66 active tests passing. All close gates met. Full detail: the **M6** subsection under Future Milestones.
-- **Active: none.** Next milestone is M7 (AI-powered report) or M6.1 tech-debt sweep per the Tech Debt register.
-- **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API), M4 (Extended Interaction Capture), M5 (Login Step and Individual Session Attribution). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
+- **Last closed: M6.1 — Heatmap Simulation Mode (2026-05-28).** All 3 parts done. Suite: 73/73 active tests passing (Tests 57–63 new, Test 54 updated). All close gates met. Full detail: the **M6.1** subsection under Future Milestones.
+- **Active: none.** Next milestone is M6.2 (Unit Test Foundation) then M7 (AI-powered report).
+- **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API), M4 (Extended Interaction Capture), M5 (Login Step and Individual Session Attribution), M6 (Admin Dashboard). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
 - **Where things live in this doc:** most recently closed scope → the **M6** section; settled per-milestone decisions → the **M1–M6** sections (history, marked `STATUS: CLOSED`); cross-cutting debt → the **Tech Debt** register; not-yet-started work → **Future Milestones** M6.1–M8; speculative ideas → **Potential post-MVP items**.
 - **This is an append-only decision log** — later dated notes can supersede earlier ones in place. When two notes seem to conflict, the most recent dated note and the current code win.
 
@@ -152,6 +152,15 @@ Tech debt M6 is likely to introduce, identified upfront so implementation can pl
 - **Test coverage is core-path focused.** The 8 new M6 tests cover the main flows (config save, heatmap viewer param passing, outcome filtering); edge cases, invalid inputs, and multi-step sequences are not exercised. Expand before production deployment.
 - **Report generation is a placeholder.** The dashboard button is wired but does not generate a real report in M6 — it shows a "not yet implemented" message. The full AI report pipeline (data aggregation, LLM call, output formatting) ships in M7. M6's placeholder is a stub only.
 - **Suite runtime growth.** New M6 tests (8 cases) grow the full suite; revisit parallelism/sharding if total runtime exceeds acceptable bounds.
+
+### Anticipated (M6.1) — identified at planning
+Tech debt M6.1 is likely to introduce, identified upfront at milestone-start (2026-05-28). Outcomes to be marked at M6.1 close. (Architecture in `ARCHITECTURE_OVERVIEW.md` → "M6.1 architecture".)
+- **`source`→schema resolution must stay allowlisted (critical).** The viewer/API select the data schema from a `source` param. To avoid schema-injection, `source` is an **enum** (`real`/`sim`) mapped server-side by `resolveHeatmapSchema` to a concrete schema name — a raw schema name must never travel from the client into SQL. Must be in place (and the only schema-producing path) before M6.1 is complete.
+- **Schema-migration burden grows.** Every future DB schema change (M7, M8) must now also target the sim schemas (`heatmap_sim`, `heatmap_test_sim`) in `scripts/db-setup.mjs`. Operational overhead; worth a checklist note in future milestone-start runs.
+- **Synchronous generator may be slow.** Generating ~1500 sessions with events in a single request risks an HTTP timeout. Mitigated by bulk multi-row inserts (bounded round-trips); revisit with chunking or a background/streaming approach if measured runtime is poor.
+- **Hardcoded simulation distribution.** Session count (~1500), outcome ratios (~65/35), exit reasons, and desktop/mobile split are hardcoded in the generator. Acceptable POC simplification; revisit if realistic variation is needed.
+- **Sim data persists until manually discarded.** No auto-cleanup; stale sim data could confuse a future admin if Discard is forgotten. The confirmation pop-up is the only safeguard. (Test runs are wiped by `global-teardown`.)
+- **Simulation fixed to Personal Information only.** Extending to other steps requires generator changes. Acceptable for the POC.
 
 ## Potential post-MVP items
 
@@ -646,20 +655,35 @@ Six sequential parts, each ending with a manual check (same discipline as M2–M
 - **Part 6 — Remove Shop header controls + Report placeholder + close.** Delete the header Heatmap/Clear-data/toggle/note from the live Shop (delete, not hide); add the Report placeholder button; rewrite Tests 2/3 onto the dashboard/API path; run close gates. *Check:* live Shop has no heatmap/admin UI; dashboard is the only entry; suite green; all close gates logged.
 
 ### M6.1 — Heatmap Simulation Mode (follow-up to M6)
-*Idea captured 2026-05-27; sequenced **after M6 is complete**. Not yet scope-frozen — needs its own `milestone-start` before any code.*
 
-A dashboard section that lets the admin **simulate** how the heatmap looks at volume, without any real visitors. Generate a configurable number of sessions (e.g. ~1500) with **random actions on the Personal Information step** (the fixed simulation step), covering **both desktop and mobile** and **all three views** (clicks / mouse-moves / scrolls), so the admin can eyeball the visualisations populated.
+> **STATUS: CLOSED (2026-05-28). All 3 parts delivered. 73/73 active tests passing (Tests 57–63 new, Test 54 updated). All close gates met.**
+
+A dedicated **Simulation section** in the admin dashboard that lets the admin generate synthetic sessions and preview how the heatmap looks at volume, without real visitors.
 
 **Hard constraints:**
 - **Simulated data is stored separately from real data** — real `sessions`/`events` must never be mixed with simulated ones.
-- **Discardable** — the admin can wipe the simulated set, and **real data must remain fully intact**.
+- **Discardable** — the admin can wipe the simulated set; real data remains fully intact.
 
-**Feasibility / likely approach (not committed):** the existing per-schema isolation (`HEATMAP_DB_SCHEMA`, already used for `heatmap_test`) gives a natural separation — a dedicated `heatmap_sim` schema (or a `simulated` flag), where "discard" wipes only that set. Prior art: M4 Part 8 used throwaway sim pages (`heatmap-sim/`, `heatmap-scroll-sim/`, since deleted) to preview mouse-move/scroll at ~1000 sessions, so generating and rendering aggregates is proven.
+**Decisions agreed (2026-05-28):**
+- **Fixed session count: ~1500.** Not admin-configurable. Goal is "populated visualisations"; variable count adds UI scope with no clear POC benefit.
+- **Isolation: separate `heatmap_sim` Postgres schema.** Same pattern as `heatmap_test` — discard = TRUNCATE the sim schema; zero risk of touching real data. (Ruled out: a `simulated` flag on existing tables — every query would need to filter it and a bug could mix data.)
+- **Fixed simulation step: Personal Information only.** Both desktop and mobile, all three views (clicks / mouse-moves / scrolls).
+- **Realistic outcome/exit mix (hardcoded):** ~65% `abandoned`, ~35% `completed`; exit reasons: ~50% idle, ~30% left-browser, ~15% nav-click, ~5% back; desktop/mobile split: ~60/40.
+- **Capture toggles ignored.** Simulation generates the full dataset regardless of what capture config is currently on/off. Its purpose is previewing visualisations, not replaying the capture pipeline.
+- **Viewer: reuse the real viewer.** Pass a param (e.g. `?schema=sim`) so the viewer reads from `heatmap_sim` instead of `public`. No separate sim view — no code duplication.
+- **Admin-only access.** Same secret-token auth as the rest of the dashboard.
 
-**Decisions so far (2026-05-27):**
-- **Random model = realistic mix.** Simulated sessions follow real-life ratios — most drop off, some complete, some idle — so the heatmap resembles real traffic and the outcome filter is testable on sim data. (Not pure random.)
+**Dashboard entry point — own Simulation section (separate from Heatmap):**
+- Sits below the Heatmap section, above Report in the dashboard.
+- Status line: "1,500 simulated sessions ready" or "No simulation data".
+- Two action buttons: **Generate** (creates the sim dataset) and **Discard** (wipes `heatmap_sim`; real data untouched), Discard behind a confirmation pop-up.
+- One **View Simulation** button — opens the viewer pointed at `heatmap_sim`, fixed to Personal Information. No step / timeframe / outcome controls shown (they don't apply to sim data).
+- The viewer keeps its desktop/mobile + clicks/moves/scrolls toggles — these are view-time choices, not generate-time choices.
+- The Heatmap section (real data) is unchanged — keeping real and sim clearly separate avoids confusion over which controls apply to which dataset.
 
-**Open questions for its own scoping:** simulated outcome/exit distribution detail; fixed ~1500 vs admin-set session count; separate schema vs `simulated` flag; reuse the real viewer pointed at the sim set vs a separate sim view; whether sims respect the capture on/off toggles; admin-only access (assumed, like the rest of the dashboard).
+**All 6 original open questions resolved (2026-05-28).** No remaining open questions.
+
+**Anticipated tech debt** is recorded in the Tech Debt register → **Anticipated (M6.1)** above (one critical item — the `source`→schema allowlist; five non-critical). Architecture + phased implementation plan: `ARCHITECTURE_OVERVIEW.md` → "M6.1 architecture — heatmap simulation mode".
 
 ### M6.2 — Unit Test Foundation (follow-up to M6)
 *Idea captured 2026-05-27; sequenced **after M6.1 is complete**, before M7. Not yet scope-frozen — needs its own `milestone-start` before any code.*

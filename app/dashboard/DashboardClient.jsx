@@ -128,6 +128,68 @@ export function DashboardClient({ token, initialConfig }) {
   const [clearStatus, setClearStatus] = useState(null); // "cleared" | "error" | null
   const [captureMode, setCaptureMode] = useState(() => deriveCaptureMode(initialConfig.captureWindow));
 
+  // Simulation section
+  const [simCount, setSimCount] = useState(null); // null = not yet loaded
+  const [simGenerating, setSimGenerating] = useState(false);
+  const [simDiscarding, setSimDiscarding] = useState(false);
+  const [showSimDiscardConfirm, setShowSimDiscardConfirm] = useState(false);
+  const [simFeedback, setSimFeedback] = useState(null); // "generated" | "discarded" | "error" | null
+
+  useEffect(() => {
+    fetch("/api/checkout-heatmap/simulate")
+      .then((r) => r.json())
+      .then((d) => setSimCount(typeof d.count === "number" ? d.count : 0))
+      .catch(() => setSimCount(0));
+  }, []);
+
+  async function handleGenerate() {
+    if (simGenerating) return;
+    setSimGenerating(true);
+    setSimFeedback(null);
+    try {
+      const res = await fetch("/api/checkout-heatmap/simulate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Generate failed");
+      const d = await res.json();
+      setSimCount(d.count ?? 0);
+      setSimFeedback("generated");
+      setTimeout(() => setSimFeedback(null), 3000);
+    } catch {
+      setSimFeedback("error");
+      setTimeout(() => setSimFeedback(null), 3000);
+    } finally {
+      setSimGenerating(false);
+    }
+  }
+
+  async function handleSimDiscard() {
+    if (simDiscarding) return;
+    setSimDiscarding(true);
+    setSimFeedback(null);
+    try {
+      const res = await fetch("/api/checkout-heatmap/simulate", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Discard failed");
+      setSimCount(0);
+      setSimFeedback("discarded");
+      setTimeout(() => setSimFeedback(null), 3000);
+    } catch {
+      setSimFeedback("error");
+      setTimeout(() => setSimFeedback(null), 3000);
+    } finally {
+      setSimDiscarding(false);
+      setShowSimDiscardConfirm(false);
+    }
+  }
+
+  function handleViewSim() {
+    window.open("/checkout/001/heatmap?step=personal-info&source=sim", "_blank", "noopener");
+  }
+
   // Heatmap section — local filter state (not persisted, no Save needed)
   const [heatmapStep, setHeatmapStep] = useState("personal-info");
   const [heatmapView, setHeatmapView] = useState("desktop_view");
@@ -471,6 +533,69 @@ export function DashboardClient({ token, initialConfig }) {
             </div>
           </section>
 
+          {/* ─── SIMULATION ─── */}
+          <section data-dashboard-section="simulation" className="border-t border-slate-100">
+            <div className="px-5 py-4">
+              <h2 className="mb-1 text-xl font-bold text-[#1F2A37]">Simulation</h2>
+              <p className="mb-4 text-xs text-slate-400">
+                Generate synthetic sessions to preview heatmaps at volume without real traffic.
+              </p>
+
+              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <span
+                  className="text-sm font-medium text-slate-700"
+                  data-dashboard-sim-status
+                >
+                  {simCount === null
+                    ? "Loading…"
+                    : simCount === 0
+                    ? "No simulation data"
+                    : `${simCount.toLocaleString()} simulated sessions ready`}
+                </span>
+                {simFeedback === "generated" && (
+                  <span className="ml-3 text-xs font-medium text-green-600">Generated</span>
+                )}
+                {simFeedback === "discarded" && (
+                  <span className="ml-3 text-xs font-medium text-green-600">Discarded</span>
+                )}
+                {simFeedback === "error" && (
+                  <span className="ml-3 text-xs font-medium text-red-500">Failed — try again</span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={simGenerating}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460] disabled:opacity-50"
+                  data-dashboard-sim-generate
+                >
+                  {simGenerating ? "Generating…" : "Generate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSimDiscardConfirm(true)}
+                  disabled={simDiscarding || simCount === 0}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
+                  data-dashboard-sim-discard
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={handleViewSim}
+                  disabled={simCount === 0}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
+                  data-dashboard-sim-view
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View Simulation
+                </button>
+              </div>
+            </div>
+          </section>
+
           {/* ─── REPORT ─── */}
           <section data-dashboard-section="report" className="border-t border-slate-100 px-5 py-4">
             <h2 className="mb-2 text-xl font-bold text-[#1F2A37]">Report</h2>
@@ -486,6 +611,37 @@ export function DashboardClient({ token, initialConfig }) {
           </section>
         </div>
       </div>
+
+      {/* ─── SIM DISCARD CONFIRMATION ─── */}
+      {showSimDiscardConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          data-dashboard-sim-confirm-overlay
+        >
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-base font-bold text-[#1F2A37]">Discard simulation data?</h3>
+            <p className="mb-6 text-sm text-slate-500">
+              This deletes all simulated sessions. Real captured data is not affected.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowSimDiscardConfirm(false)}
+                className="rounded-2xl border px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSimDiscard}
+                disabled={simDiscarding}
+                className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                data-dashboard-sim-confirm-discard
+              >
+                {simDiscarding ? "Discarding…" : "Yes, discard"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── CLEAR DATA CONFIRMATION ─── */}
       {showClearConfirm && (

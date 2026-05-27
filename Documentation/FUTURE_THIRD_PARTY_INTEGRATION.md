@@ -246,6 +246,29 @@ A `DASHBOARD_TOKEN` environment variable (any non-empty string) gates admin acti
 
 The Heatmap step dropdown and Clear-data button that previously lived in the Shop's top bar (`components/prototype/TopBar.jsx`, `showM1Actions` block) were **deleted**. The live Shop now renders with no heatmap or admin UI visible to visitors. All admin entry points live solely in the dashboard (`/dashboard?token=`). Any external integration that assumed the Shop top bar exposed heatmap navigation links must be updated to use the dashboard instead.
 
+## M6.1 integration-ready state
+
+M6.1 added a heatmap simulation mode. Integration-facing changes are minimal — simulation is a dashboard-only tool that writes to an isolated schema and is never part of the capture pipeline.
+
+### New API contracts (M6.1)
+
+- `GET /api/checkout-heatmap/simulate`
+  - Purpose: return the count of simulated sessions currently in the sim schema (`{ ok: true, count: N }`). **Public — no auth required.** Used by the dashboard status line.
+  - Status: provisional POC admin contract.
+- `POST /api/checkout-heatmap/simulate`
+  - Purpose: generate ~1500 synthetic pre-finalized sessions into the sim schema. **Auth-gated** — requires `Authorization: Bearer <DASHBOARD_TOKEN>`; returns 401 otherwise. Returns `{ ok: true, count: N }`.
+  - Status: provisional POC admin contract.
+- `DELETE /api/checkout-heatmap/simulate`
+  - Purpose: discard all simulated sessions (TRUNCATE the sim schema). **Auth-gated** — same token. Real data is never touched. Returns `{ ok: true }`.
+  - Status: provisional POC admin contract.
+- `GET /api/checkout-heatmap?source=sim`
+  - The existing `GET /api/checkout-heatmap` route now accepts an optional `?source=sim` param that redirects reads to the sim schema. With no param or `source=real` the behavior is unchanged (reads real data). The `source` value is an allowlisted enum (`real` / `sim`) resolved server-side — a raw schema name never travels from the client into SQL.
+  - Status: additive extension to the existing stable contract.
+
+### Schema isolation (M6.1)
+
+The sim data lives in its own Postgres schema (`heatmap_sim` live / `heatmap_test_sim` under the test runner) — a parallel of the `heatmap_test` isolation pattern already in place. An integration partner does not need to interact with or be aware of the sim schema; it has no effect on real capture, ingest, or query paths.
+
 ## Milestone maintenance rule
 
 At the end of each milestone, this document must be reviewed and updated to reflect:

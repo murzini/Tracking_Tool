@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveHeatmapSchema } from "../../../lib/prototype/db";
 import {
   appendCheckoutHeatmapSession,
   clearCheckoutHeatmapSessions,
@@ -7,12 +8,16 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET() {
-  const sessions = await readCheckoutHeatmapSessions();
-  return NextResponse.json({
-    ok: true,
-    sessions,
-  });
+export async function GET(request) {
+  const source = new URL(request.url).searchParams.get("source") ?? "real";
+  let schema;
+  try {
+    schema = resolveHeatmapSchema(source);
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid source" }, { status: 400 });
+  }
+  const sessions = await readCheckoutHeatmapSessions({ schema });
+  return NextResponse.json({ ok: true, sessions });
 }
 
 export async function POST(request) {
