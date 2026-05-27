@@ -31,7 +31,7 @@ The core integration-facing facts established by M1–M2. M3 (Postgres + query A
 ### Data concepts (baseline)
 
 - Each opening of a checkout step is treated as a new session (any of `personal-info`, `delivery`, `pay`; sessions carry the `step`). *(M4 refines this: a return within window X resumes the same session — see "Session resume and external re-entry".)*
-- M1–M2 persisted only drop-off sessions. **M4 now records all sessions**, each tagged with an `outcome` (`advanced` / `completed` / `abandoned` / `in-progress`) so completers can be compared against non-completers — see the M3/M4 notes and `DATA.md`.
+- M1–M2 persisted only drop-off sessions. **M4 now records all sessions**, each tagged with an `outcome` (`completed` / `abandoned` / `in-progress`) so completers can be compared against non-completers — see the M3/M4/M6 notes and `DATA.md`.
 - A drop-off requires at least one interaction, then inactivity for the configured threshold. *(M4 also records zero-interaction bounces.)*
 - Clicks are stored as element-anchor offsets: `{ anchor: { id, dx, dy } }` where `id` is the stable identifier of the nearest tracked UI element. For clicks directly on an element, `dx`/`dy` are `0` (dot snaps to element center); for free-space clicks they capture the offset from the nearest element's center. This replaced the earlier raw-pixel approach.
 - Each click also carries element metadata at capture time: `label`, `role`, `tagName`, `field name`, and click offset within the element — the foundation for future engagement reporting (grouping interactions by checkout element rather than by pixel position).
@@ -63,7 +63,7 @@ M3 moved the store to a database and added a query layer. The integration-facing
 - **Storage backend:** the local JSON file store is replaced by Neon Postgres (`sessions` + `events` tables). The `GET / POST / DELETE /api/checkout-heatmap` contract is unchanged, so existing consumers are unaffected by the swap.
 - **`clicks[]` → `events[]`:** the captured interaction array is generalised. A click is now an event with `type: "click"`; type-specific data (anchor, target, uiState) lives in an extensible `detail` payload (JSONB column). This is the durable shape intended to carry M4 event types (`scroll`, `field-focus`, `field-blur`, `field-change`, `validation-error`, `element-visible`, …) without a schema migration. `normalizeCheckoutHeatmapSession` accepts both `events[]` (current) and legacy `clicks[]` as input and always outputs `events[]`.
 - **New session fields:**
-  - `outcome` — `abandoned` | `completed` | `advanced`. All sessions are recorded (not just drop-offs) so completers can be compared against non-completers. Inactivity-finalized sessions are `abandoned`; completed/advanced are written from M4.
+  - `outcome` — `abandoned` | `completed`. All sessions are recorded (not just drop-offs) so completers can be compared against non-completers. Inactivity-finalized sessions are `abandoned`; `completed` is written from M4 and unified in M6.
   - `samplingRate` — effective rate = external % (host traffic share) × internal % (our visitor-level rate). Field stored in M3; the sampling *mechanism* is M4. Drop-off ratios need no adjustment; absolute counts are scaled by this rate at report time.
 
 Field meaning, required/optional status, and milestone context for these are detailed in `Documentation/DATA.md`.
@@ -94,7 +94,7 @@ M4 built the batched capture pipe + sampling gate and captured the full event se
 ### Data model changes (M4)
 
 - **Rich events captured.** Beyond click/tap: `mouse-move` (desktop mouse + mobile finger via `touchmove`), `scroll` (depth), `field-focus` / `field-blur` / `field-change` (filled/length only — **never the raw value**), `validation-error`, and `element-visible` / `element-hidden` (with visible duration). All ride the `events.type` + JSONB `detail` shape defined in M3 — no schema migration. Field definitions live in `Documentation/DATA.md`.
-- **Session outcome states.** `outcome` now takes `advanced` / `completed` (success, on step navigation), `abandoned` (drop-off), and `in-progress` (committed-but-unfinalized). `exit_reason` (`idle` / `nav-click` / `back` / `left-browser`) records how a non-completed step was left. `step_active_ms` / `step_idle_ms` split time-on-step (`active + idle = duration`). All durable, queryable fields — see `DATA.md`.
+- **Session outcome states.** `outcome` now takes `completed` (success, on step navigation — unified in M6), `abandoned` (drop-off), and `in-progress` (committed-but-unfinalized). `exit_reason` (`idle` / `nav-click` / `back` / `left-browser`) records how a non-completed step was left. `step_active_ms` / `step_idle_ms` split time-on-step (`active + idle = duration`). All durable, queryable fields — see `DATA.md`.
 
 ### API contracts (M4)
 
@@ -189,7 +189,7 @@ Conceptually this is still "resume within X" — production simply uses a much *
 
 **Integration constraints to keep the POC model open to this (no M8 work now):**
 - Session identity must be addressable from outside the original tab/visit — keyed by visitor/checkout identity, not only a client cookie — so an email or dashboard link can resolve the right session to resume.
-- `outcome` and finalization must not be treated as terminal/immutable; a finalized `abandoned` session can later transition (e.g. to `advanced`/`completed`) on resume.
+- `outcome` and finalization must not be treated as terminal/immutable; a finalized `abandoned` session can later transition (e.g. to `completed`) on resume.
 - The resume window X is a configurable rule (see below), expected to be large in production.
 
 ### Configurable rules (resume)

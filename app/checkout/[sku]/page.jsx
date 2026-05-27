@@ -17,9 +17,9 @@ import { flushCheckoutHeatmapOutcome, useCheckoutHeatmapCapture } from "../../..
 import { isLoginDone } from "../../../lib/prototype/checkoutVisitorId";
 import { fade } from "../../../lib/prototype/fade";
 
-// M4 Part 5: step order, so advancing to a later step records the step being left
-// as a success (`advanced`); finishing the checkout records the pay step as
-// `completed`.
+// M4 Part 5 / M6: step order, so advancing to a later step records the step being
+// left as a success (`completed`); finishing the checkout records the pay step as
+// `completed` (M6 unified outcome model).
 const CHECKOUT_STEP_ORDER = ["personal-info", "delivery", "pay"];
 
 function resolveStep(searchParams) {
@@ -75,9 +75,9 @@ function CheckoutRouteContent() {
             item={item}
             step={step}
             setStep={(nextStep) => {
-              // Advancing to a later step = the current step was a success.
+              // Advancing to a later step = the current step was completed successfully.
               if (CHECKOUT_STEP_ORDER.indexOf(nextStep) > CHECKOUT_STEP_ORDER.indexOf(step)) {
-                flushCheckoutHeatmapOutcome("advanced");
+                flushCheckoutHeatmapOutcome("completed");
               }
               // Forward test/automation params so login → PI stays one navigation.
               const opts = { isTour };

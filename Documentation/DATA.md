@@ -39,7 +39,7 @@ Two tables. A click is an event of `type: "click"` — the original M1 `clicks[]
 | `duration_ms` | INTEGER | |
 | `click_count` | INTEGER | default 0 |
 | `interaction_count` | INTEGER | default 0 |
-| `outcome` | TEXT | `abandoned` (visitor dropped off — did not complete the step) \| `completed` \| `advanced` — written M4. `in-progress` (started, not yet resolved) — written M4 Part 6; replaces `null` for committed-but-unfinalized sessions. A terminal outcome (advanced/completed/abandoned) is never overwritten by a later `in-progress` flush. |
+| `outcome` | TEXT | `abandoned` (visitor dropped off — did not complete the step) \| `completed` (completed this step) — unified in M6 (replaced `advanced`). `in-progress` (started, not yet resolved) — written M4 Part 6; replaces `null` for committed-but-unfinalized sessions. A terminal outcome (completed/abandoned) is never overwritten by a later `in-progress` flush. |
 | `exit_reason` | TEXT | how the visitor left a non-completed step: `idle` \| `nav-click` \| `back` \| `left-browser` — added M4 Part 5. **`in-progress` + `exit_reason` can co-exist, and this is intentional (decided 2026-05-24):** the exit beacon records *how* the visitor left while the session stays `in-progress` because they may return within X. If X elapses with no return, the sweep finalizes it (`abandoned`) keeping this `exit_reason`. So `in-progress` + `left-browser` reads as "visitor left the page; not yet finalized; may still return within X." |
 | `sampling_rate` | NUMERIC | effective rate (external × internal %) — written M4 |
 | `step_active_ms` | INTEGER | active time on step — written M4 |
@@ -84,6 +84,7 @@ Tests run against the `heatmap_test` Postgres schema (same Neon DB). The playwri
 | M4 (Part 6) | `outcome` gains `in-progress`: a committed-but-unfinalized session is stamped `in-progress` (server-side in the ingest upsert) instead of `null`. The sweep now matches `outcome IS NULL OR 'in-progress'`, and the ingest upsert guards `outcome` with a CASE so a terminal outcome is never reverted by a late `in-progress` flush. No schema change. (Rendering-only changes — mouse-move/scroll views + toggle — touch no tables.) |
 | M4 (Part 7) | Mobile finger-movement captured as `mouse-move` rows (`touchmove`, ~10 Hz throttle, surface-relative `x`/`y`). No schema change — reuses the `mouse-move` type. |
 | M4 (Part 8) | Rendering-only port (chosen single style per type); touches no tables or columns. |
+| M6 (Part 1) | Outcome model unified: `advanced` is removed, `completed` (instead of `advanced`) is the single success outcome meaning "completed this step" (applied uniformly). No schema change — existing `advanced` rows migrated to `completed` via idempotent UPDATE. |
 
 ---
 

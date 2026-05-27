@@ -88,6 +88,12 @@ async function setupSchema(schema) {
     'sessions.visitor_id ready'
   );
 
+  // M6 Part 1: unify outcome model — collapse `advanced` into `completed`.
+  await run(
+    `UPDATE "${schema}".sessions SET outcome='completed' WHERE outcome='advanced'`,
+    'outcome migration: advanced→completed'
+  );
+
   await run(`
     CREATE TABLE IF NOT EXISTS "${schema}".events (
       id          TEXT        PRIMARY KEY,

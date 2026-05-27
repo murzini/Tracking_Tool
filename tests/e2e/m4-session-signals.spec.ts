@@ -1,10 +1,9 @@
 import { test, expect, Page } from "@playwright/test";
 
-// ─── M4 Part 5 — session signals + outcomes ──────────────────────────────────
+// ─── M4 Part 5 — session signals + outcomes (M6: unified outcome model) ──────
 // Test 36: a zero-interaction visit is committed on exit and the lazy/derived
 //          sweep finalizes it as an `abandoned` bounce with an exit reason.
-// Test 37: advancing a step records `advanced`; finishing checkout records
-//          `completed` on the pay step.
+// Test 37: advancing a step or finishing checkout both record `completed`.
 // Test 38: a finalized session records step_active_ms / step_idle_ms that
 //          reconcile with the duration.
 // Test 41: returning within X resumes the same session id; after X is a new one.
@@ -119,15 +118,16 @@ test("Test 36 — a zero-interaction visit is recorded as an abandoned bounce", 
   console.log(`  bounce sessions: ${sessions.length}, exitReason: ${sessions[0].exitReason}`);
 });
 
-// ─── Test 37 — outcome advanced / completed ──────────────────────────────────
+// ─── Test 37 — outcome unified to completed ──────────────────────────────────
+// M6: a completed step (advancing or finishing) all read `completed`.
 
-test("Test 37 — advancing records advanced; finishing records completed", async ({ page }) => {
+test("Test 37 — advancing and finishing record completed", async ({ page }) => {
   await clearHeatmapData(page);
   // 30s window so filling the form does not trip the inactivity finalize.
   await gotoCheckout(page, { automation: false });
   await fillPersonalInfo(page);
 
-  // Personal Information → Delivery (advanced), Delivery → Pay (advanced).
+  // Personal Information → Delivery (completed), Delivery → Pay (completed).
   await page.locator('[data-heatmap-id="cta:choose-delivery"]').click();
   await page.waitForURL(/step=delivery/, { timeout: 10000 });
   await page.locator('[data-heatmap-id="cta:pay-finish"]').click();
@@ -147,8 +147,8 @@ test("Test 37 — advancing records advanced; finishing records completed", asyn
     .toBeGreaterThanOrEqual(3);
 
   const byStep = (step: string) => sessions.find((s) => s.step === step);
-  expect(byStep("personal-info")?.outcome, "personal-info was advanced").toBe("advanced");
-  expect(byStep("delivery")?.outcome, "delivery was advanced").toBe("advanced");
+  expect(byStep("personal-info")?.outcome, "personal-info was completed").toBe("completed");
+  expect(byStep("delivery")?.outcome, "delivery was completed").toBe("completed");
   expect(byStep("pay")?.outcome, "pay was completed").toBe("completed");
 
   // Success outcomes carry no exit reason.
@@ -255,7 +255,7 @@ test("Test 42 — a resolved outcome is not reverted by a later sweep", async ({
   await gotoCheckout(page, { automation: false });
   await fillPersonalInfo(page);
 
-  // Advance personal-info → delivery: the personal-info session resolves to `advanced`.
+  // Advance personal-info → delivery: the personal-info session resolves to `completed`.
   await page.locator('[data-heatmap-id="cta:choose-delivery"]').click();
   await page.waitForURL(/step=delivery/, { timeout: 10000 });
 
@@ -265,12 +265,12 @@ test("Test 42 — a resolved outcome is not reverted by a later sweep", async ({
       personalInfo = (await getStoredSessions(page)).find((s) => s.step === "personal-info");
       return personalInfo?.outcome ?? null;
     }, { timeout: 10000, intervals: [200, 300, 500] })
-    .toBe("advanced");
+    .toBe("completed");
 
   // A later sweep must NOT overwrite the resolved outcome (terminal wins).
   await sweep(page, true);
   personalInfo = (await getStoredSessions(page)).find((s) => s.step === "personal-info");
-  expect(personalInfo?.outcome, "a resolved (advanced) outcome survives a sweep").toBe("advanced");
+  expect(personalInfo?.outcome, "a resolved (completed) outcome survives a sweep").toBe("completed");
 
   console.log(`  resolved outcome after sweep: ${personalInfo?.outcome}`);
 });

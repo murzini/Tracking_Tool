@@ -508,7 +508,7 @@ Anticipated M5 debt identified at planning: `visitor_id` in localStorage (POC st
 
 ## M6 architecture — admin dashboard
 
-**Status: PLANNING — scope frozen + fully specified (`PRODUCT_OVERVIEW.md` → M6 → "Decisions agreed (2026-05-27)"). This section is the architecture + phased implementation plan required by the `milestone-start` gate; no code yet.** Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6). The test plan is produced separately by `milestone-test-planning`; this section names the known test impacts so that plan can account for them.
+**Status: IN PROGRESS — Part 1 done (2026-05-27): outcome-model unification (`advanced` → `completed`). Parts 2–6 to follow.** Scope frozen + fully specified (`PRODUCT_OVERVIEW.md` → M6 → "Decisions agreed (2026-05-27)"). This section is the architecture + phased implementation plan required by the `milestone-start` gate. Anticipated tech debt recorded in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6). The test plan is produced separately by `milestone-test-planning`; this section names the known test impacts so that plan can account for them.
 
 ### Goal and boundaries
 
