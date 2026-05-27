@@ -113,3 +113,11 @@ See `CLAUDE.md` → "Model selection" for the full rule and examples.
 - **Commit is a milestone-finalize gate.** A milestone is not considered complete until all of its work (code, tests, and docs) is committed to git — the commit is the milestone's restore point. `milestone-prereqs` verifies a committed/clean tree before returning READY. Commit by explicit path (not a blanket `git add -A`) so secrets (`.env.local`, which holds the Neon `DATABASE_URL`) and generated files (`test-results/`) are never committed.
 - **Recommended commit cadence (not just at milestone end):** also commit per part/chunk and per working session, so work is never more than one bad edit away from a restore point. This is a recommendation; the per-milestone commit is the hard gate.
 - These rules apply to milestone work, fixes, refactors, and any other change that may impact covered scope.
+
+## Unit + e2e test workflow
+
+Standing convention (adopted 2026-05-28 with M6.2). Applies to every milestone from M6.2 onward. Unit tests (Vitest, `tests/unit/*.test.ts`) need no DB or dev server, so they are the fast first check; the slow Playwright e2e suite runs only after they pass.
+
+1. **During a part:** run the unit tests continuously while developing. A part is **not complete** until all unit tests are green.
+2. **End of a part:** once all unit tests are green, run only the e2e tests **related to that part** (use `test-impact` to pick the minimal set) — not the whole suite.
+3. **Milestone close gate:** run **all** unit tests; once green, run the **whole** e2e suite. Both green is the milestone "green" gate, in addition to the other close gates above.

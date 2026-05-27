@@ -46,3 +46,7 @@ Date,Time,Agent,Status,Summary
 2026-05-28,milestone-start,OK,"M6.1 READY: all 7 prereqs MET. Scope frozen+specified, tech debt reviewed, arch+3-part plan, test plan logged."
 2026-05-28,01:02,milestone-doc-review,GAPS-FIXED,"14 gaps fixed: PRODUCT_OVERVIEW/ARCH/TEST_CASES status; README simulate routes+section; DATA M6.1 row; FUTURE M6.1 section; onboarding; test-impact M6.1 mappings"
 2026-05-28,01:03,milestone-prereqs,GAPS-OPEN,"M6.1: 8/9 MET. Only gap: M6.1 code/docs not yet committed (prereq 9). Commit required before READY."
+2026-05-28,01:04,milestone-prereqs,OK,"M6.1 READY: all 9 prereqs MET. 73/73 green; TEST_CASES/ARCH/DATA/FUTURE reviewed; agents reviewed; no open critical debt; committed 34c27a1."
+2026-05-28,01:43,milestone-test-planning,OK,"M6.2 plan: no e2e changes; 38 unit tests across 4 files (checkoutHeatmap 22, sampling 6, configStore 5, dashboardAuth 5)."
+2026-05-28,01:56,milestone-prereqs,GAPS-OPEN,"M6.2: 6/9 MET. Gaps: milestone-doc-review not run (prereq 7), tech-debt scan stale (prereq 8), code/docs not committed (prereq 9)."
+2026-05-28,01:59,milestone-doc-review,GAPS-FIXED,"M6.2: checkoutHeatmap.test.ts count fixed 22→34 in TEST_CASES.md and ARCHITECTURE_OVERVIEW.md; total 54 unit tests confirmed correct; FUTURE_THIRD_PARTY_INTEGRATION.md unaffected (unit tests only)."

@@ -543,3 +543,110 @@ All in `tests/e2e/m6-sim.spec.ts`.
 - Click **Discard** button (`[data-dashboard-sim-discard]`) → confirmation overlay appears → click confirm → overlay closes → `[data-dashboard-sim-status]` shows zero / "No simulation data".
 - `GET /api/checkout-heatmap` (no source) → real sessions count is unchanged (discard did not touch real data).
 - Evidence: `test-results/M6.1 Test 63 - Dashboard Simulation section/Check evidence/dashboard-sim.png`
+
+---
+
+## M6.2 — Unit Test Foundation
+
+**Status: COMPLETE (2026-05-28). 54 unit tests across 4 files, all passing.**
+**Framework:** Vitest, running in Node environment (no DB, no browser, no dev server required).
+**Location:** `tests/unit/*.test.ts`
+**Run command:** `npm run test:unit`
+
+No e2e tests were added, removed, or changed. The unit tests cover pure-logic rules only — each rule gets one test.
+
+---
+
+### `tests/unit/checkoutHeatmap.test.ts` — 34 tests
+
+**`resolveCheckoutHeatmapStep` (2 tests)**
+- Returns each known step (`personal-info`, `delivery`, `pay`) unchanged.
+- Unknown/missing/null step returns default `"personal-info"`.
+
+**`getCheckoutHeatmapInactivityMs` (4 tests)**
+- `automation: true` → 2000 ms.
+- No args / `automation: false` → 30000 ms.
+- Positive `overrideMs` wins over the automation flag.
+- Non-positive or NaN `overrideMs` is ignored; falls back to 30000.
+
+**`classifyCheckoutHeatmapView` (2 tests)**
+- Width ≥ 1024 (desktop breakpoint) → `"desktop_view"`.
+- Width < 1024 / zero / undefined → `"mobile_view"`.
+
+**`scaleCheckoutHeatmapRadius` (4 tests)**
+- Single click (`count=1, maxCount=1`) → min radius 6.
+- Hottest element (`count=maxCount`) → max radius 24.
+- Proportional case (`count=5, maxCount=10`) → 12 (within [6, 24]).
+- Very sparse case (`count=1, maxCount=1000`) → clamped to min 6.
+
+**`isCheckoutHeatmapDropOffCandidate` (4 tests)**
+- Null session → false.
+- Active session (elapsed < threshold) → false.
+- Idle session (elapsed ≥ threshold) → true.
+- Call-site `inactivityMs` override is respected over the session-stored value.
+
+**`computeCheckoutHeatmapStepTiming` (4 tests)**
+- No events → `{ activeMs: 0, idleMs: durationMs }`.
+- `activeMs + idleMs === durationMs` always.
+- Gap longer than threshold contributes only `threshold` to active time.
+- Zero `durationMs` → `{ activeMs: 0, idleMs: 0 }`.
+
+**`normalizeCheckoutHeatmapSession` (4 tests)**
+- Unknown `step` corrected to `"personal-info"`.
+- Legacy `clicks[]` array promoted to `events[]`.
+- Unknown `exitReason` cleared to `null`.
+- Missing `samplingRate` defaults to `1`.
+
+**`finalizeCheckoutHeatmapSession` (5 tests)**
+- No `outcome` → `"abandoned"`.
+- `outcome: "completed"` clears `exitReason` to `null`.
+- `outcome: "abandoned"` with no exit reason → `exitReason: "idle"`.
+- `durationMs` equals `finalizedAt − startedAt`.
+- `clickCount` counts only `click` and `tap` events.
+
+**`aggregateCheckoutHeatmapClicks` (5 tests)**
+- `view` filter excludes sessions with a different view.
+- `step` filter excludes sessions with a different step.
+- Same-position clicks from different sessions merge into one bucket with summed count.
+- Hottest bucket gets max radius (24).
+- Non-click events (scroll, mouse-move) produce no output points.
+
+---
+
+### `tests/unit/checkoutHeatmapSampling.test.ts` — 7 tests
+
+**`resolveSamplingRate` (7 tests)**
+- No param, no configRate, no env var → defaults to `1`.
+- Query-param override wins over configRate and env var.
+- configRate used when no query-param override is present.
+- Env var used when no param and no configRate.
+- Param value > 1 is clamped to `1`.
+- Param value < 0 is clamped to `0`.
+- Absent param does not coerce to 0 — configRate wins.
+
+---
+
+### `tests/unit/heatmapConfigStore.test.ts` — 5 tests
+
+**`getDefaultHeatmapConfig` (5 tests)**
+- All three steps (`personal-info`, `delivery`, `pay`) are `true`.
+- All required event types are `true` (click, mouse-move, scroll, field-*, validation-error, element-*).
+- `samplingRate` is `1`.
+- `captureWindow` is `{ from: null, to: null }`.
+- Each call returns a fresh object — mutations do not bleed across callers.
+
+---
+
+### `tests/unit/dashboardAuth.test.ts` — 8 tests (4 + 4)
+
+**`isAuthorizedToken` (4 tests)**
+- `DASHBOARD_TOKEN` env var absent → `false`.
+- Empty string token → `false`.
+- Token with different length from expected → `false`.
+- Exact match → `true`.
+
+**`extractBearerToken` (4 tests)**
+- Valid `Bearer my-token` header → returns `"my-token"`.
+- Absent (null) Authorization header → `null`.
+- Non-Bearer scheme (`Basic …`) → `null`.
+- `Bearer` with no token following → `null`.

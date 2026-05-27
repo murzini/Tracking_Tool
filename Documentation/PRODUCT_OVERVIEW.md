@@ -17,8 +17,8 @@
 
 *Quick orientation so the live state isn't buried in the decision log below. For session-to-session continuity, see the repo-root `onboarding.md`.*
 
-- **Last closed: M6.1 — Heatmap Simulation Mode (2026-05-28).** All 3 parts done. Suite: 73/73 active tests passing (Tests 57–63 new, Test 54 updated). All close gates met. Full detail: the **M6.1** subsection under Future Milestones.
-- **Active: none.** Next milestone is M6.2 (Unit Test Foundation) then M7 (AI-powered report).
+- **Last closed: M6.2 — Unit Test Foundation (2026-05-28).** 54 Vitest unit tests across 4 files, all passing. No e2e changes. Full detail: the **M6.2** subsection under Future Milestones.
+- **Active: none.** Next milestone is M7 (AI-powered report).
 - **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API), M4 (Extended Interaction Capture), M5 (Login Step and Individual Session Attribution), M6 (Admin Dashboard). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
 - **Where things live in this doc:** most recently closed scope → the **M6** section; settled per-milestone decisions → the **M1–M6** sections (history, marked `STATUS: CLOSED`); cross-cutting debt → the **Tech Debt** register; not-yet-started work → **Future Milestones** M6.1–M8; speculative ideas → **Potential post-MVP items**.
 - **This is an append-only decision log** — later dated notes can supersede earlier ones in place. When two notes seem to conflict, the most recent dated note and the current code win.
@@ -60,6 +60,7 @@ The problem is that visitors abandon checkout, but we do not have enough evidenc
 - These rules apply to milestone work, fixes, refactors, and any other change that may impact covered scope.
 
 ## Automated testing
+- From M6.2: two layers — **unit tests** (Vitest, `tests/unit/*.test.ts`, Node environment, no DB or dev server) and **e2e tests** (Playwright, `tests/e2e/*.spec.ts`, against `localhost:3000`). Unit tests run first; e2e runs after. See `AGENTS.md` → "Unit + e2e test workflow".
 - Each milestone has a Playwright regression suite covering its agreed scope, running against `localhost:3000`.
 - Test cases are product assets — they are reviewed at the start of every milestone, updated to reflect scope changes, and must be green before a milestone is considered complete.
 - Full test case specifications (steps, inputs, outputs, evidence paths) live in `TEST_CASES.md`.
@@ -161,6 +162,11 @@ Tech debt M6.1 is likely to introduce, identified upfront at milestone-start (20
 - **Hardcoded simulation distribution.** Session count (~1500), outcome ratios (~65/35), exit reasons, and desktop/mobile split are hardcoded in the generator. Acceptable POC simplification; revisit if realistic variation is needed.
 - **Sim data persists until manually discarded.** No auto-cleanup; stale sim data could confuse a future admin if Discard is forgotten. The confirmation pop-up is the only safeguard. (Test runs are wiped by `global-teardown`.)
 - **Simulation fixed to Personal Information only.** Extending to other steps requires generator changes. Acceptable for the POC.
+
+### Anticipated (M6.2) — identified at planning
+Tech debt M6.2 introduced by scoping unit tests only to already-pure modules; non-unit-testable logic was deferred. No critical items. Outcomes to be marked at M7.1/M7.2 close.
+- **Capture-window date check not unit-tested (deferred to M7.1).** The local-day boundary check lives inside `checkoutHeatmapClient.js`, a browser module that cannot be imported in Node/Vitest without globals. Extract to a pure helper module in M7.1, then add unit tests covering `from`/`to` boundary logic.
+- **Ingest config gates not unit-tested (deferred to M7.2).** The four gates (step gate, sampling gate, capture-window gate, event-type filter) are embedded inside `app/api/checkout-heatmap/ingest/route.js`, mixed with `NextResponse` and DB calls. Extract to a pure helper module in M7.2, then add unit tests for each gate.
 
 ## Potential post-MVP items
 
@@ -686,26 +692,47 @@ A dedicated **Simulation section** in the admin dashboard that lets the admin ge
 **Anticipated tech debt** is recorded in the Tech Debt register → **Anticipated (M6.1)** above (one critical item — the `source`→schema allowlist; five non-critical). Architecture + phased implementation plan: `ARCHITECTURE_OVERVIEW.md` → "M6.1 architecture — heatmap simulation mode".
 
 ### M6.2 — Unit Test Foundation (follow-up to M6)
-*Idea captured 2026-05-27; sequenced **after M6.1 is complete**, before M7. Not yet scope-frozen — needs its own `milestone-start` before any code.*
+> **STATUS: COMPLETE (2026-05-28).** 54 Vitest unit tests across 4 files, all passing. No e2e changes.
 
-Introduce a **unit-test layer** to cover the **durable, pure-logic core**. No unit tests exist today — the suite is entirely Playwright e2e (`tests/e2e/*.spec.ts`). Motivated by two M6 bugs that were pure logic and slipped past the e2e suite: the **capture-window date-boundary** bug (`to` parsed as midnight UTC = start of day, so selecting "Today" closed the window for the whole day) and **intermediate sampling rates never applied** (any rate above 0 captured 100%; only 0% turned capture off).
+*Idea captured 2026-05-27; sequenced **after M6.1 is complete**, before M7. **Scope frozen 2026-05-28** in a scoping session (decisions below). `milestone-start` is intentionally **skipped** — this is a follow-up to M6, not a new milestone.*
 
-**Scope — target, don't blanket:**
-- **Cover** the stable logic where bugs hide and value lasts to M8: `checkoutHeatmap.js` (normalize / finalize / drop-off candidate / step timing / scroll depth), `checkoutHeatmapSampling.js`, the capture-window check (`isCaptureWindowOpen`), `heatmapConfigStore` defaults + merge, `scannerConfig`.
-- **Skip** the throwaway sandbox UI (AdventureBag, tour mode) and anything the e2e suite already covers behaviorally — re-testing those as units is mostly duplicate maintenance.
+Introduce a **unit-test layer** (Vitest) to cover the **durable, pure-logic core**. No unit tests exist today — the suite is entirely Playwright e2e (`tests/e2e/*.spec.ts`). Motivated by two M6 bugs that were pure logic and slipped past the e2e suite: the **capture-window date-boundary** bug (`to` parsed as midnight UTC = start of day, so selecting "Today" closed the window for the whole day) and **intermediate sampling rates never applied** (any rate above 0 captured 100%; only 0% turned capture off).
+
+**Frozen scope (2026-05-28, extended 2026-05-28):**
+- **Target files — cover every business rule in each:**
+  - `checkoutHeatmap.js` — normalize / finalize / drop-off candidate / step timing / scroll depth / view classification / radius scaling / aggregation.
+  - `checkoutHeatmapSampling.js` — `resolveSamplingRate` (one of the two motivating bugs).
+  - `heatmapConfigStore` — config defaults + merge.
+  - `dashboardAuth.js` — `isAuthorizedToken` (missing/empty token, length mismatch, valid match) + `extractBearerToken` (header parsing).
+- **Coverage approach:** rule-based, **not** line-percentage. List every business rule in the target files first; each rule gets ≥1 test. Line % is not a gate.
+- **Tool:** Vitest (free, light, fits Next.js).
+- **Location:** `tests/unit/*.test.ts` (mirrors the existing `tests/e2e/` layout).
+- **Run workflow:** the standing unit+e2e convention lives in `AGENTS.md` → "Unit + e2e test workflow".
+
+**Excluded (with reason):**
+- `checkoutHeatmapSimulator.js` — generates synthetic data; no business rule.
+- `scannerConfig.js` — a static list, no logic.
+- `resolveHeatmapSchema` (`db.js`) — small security allowlist, not business logic.
+- **Capture-window date check** — the *other* motivating bug, but it lives **inside** `checkoutHeatmapClient.js` (a browser module) and can't be unit-tested without browser globals. **Deferred to M7.1**: extract to a pure module, then test.
+- **Ingest config gates** (step gate, sampling gate, capture-window gate, event-type filter) — pure logic embedded inside the Next.js route handler (`ingest/route.js`), mixed with DB calls and `NextResponse`. **Deferred to M7.2**: extract to a pure helper module, then test.
+- Throwaway sandbox UI (AdventureBag, tour mode) and anything the e2e suite already covers behaviorally.
+
+**Not blanket — at the *file* level.** Only the four durable pure-logic modules above are in scope. *Within* those files, every rule is covered (skipping an old M1 rule like drop-off just because it predates M6 would leave an obvious gap).
 
 **Main tradeoff:** blanket retroactive coverage of every milestone = high effort with heavy overlap on the existing e2e suite; targeted coverage of the durable core = most of the value for a fraction of the cost. Both M6 bugs lived in that core, so the payoff is concentrated there.
 
-**Decisions so far (2026-05-27):**
-- **Not blanket.** Do **not** retroactively unit-test all of M1–M6; cover only the durable pure-logic modules above.
-- **Tooling:** Vitest is the likely pick (fits Next.js); confirm at scoping.
-
-**Open questions for its own scoping:** exact module/function list + coverage bar; Vitest vs alternative; how unit + e2e runs combine (and the milestone "green" gate); whether `AGENTS.md` + the testing docs adopt unit tests as a standing convention for future milestones.
+**Next step:** run `milestone-test-planning` to produce the per-rule test checklist (each rule → its test), then implement part by part per the `AGENTS.md` workflow.
 
 ### M7 — AI Report Generation
 Using all captured data within the scope and timeframe selected in the admin dashboard, generate an AI-powered report that aggregates visitor behavior, identifies friction points and drop-off patterns, produces a written summary, and outputs actionable recommendations and testable hypotheses for improving checkout conversion.
 
 **How recommendations & hypotheses are produced:** the structured, aggregated findings (drop-off points, field friction, errors, attention) are fed to an LLM, which outputs prioritised recommendations and testable hypotheses ("if we change X, drop-off should fall"). A human reviews the output before acting on it.
+
+#### M7.1 — Capture-window check extraction + unit test (deferred from M6.2)
+*Addressed after the main M7 scope is delivered.* The capture-window date-boundary rule (the `to`-as-midnight-UTC bug — one of the two bugs that motivated M6.2) currently lives **inside** `checkoutHeatmapClient.js`, a browser module, so it cannot be unit-tested without browser globals. M6.2 covers the pure-logic core (`checkoutHeatmap.js`, `checkoutHeatmapSampling.js`, `heatmapConfigStore`, `dashboardAuth.js`) and **excludes** this rule. M7.1 extracts the capture-window check into its own pure module and adds the unit test, closing the gap M6.2 left open.
+
+#### M7.2 — Ingest config gate extraction + unit test (deferred from M6.2)
+*Addressed after the main M7 scope is delivered.* The four ingest config gates (step gate, sampling gate, capture-window gate, event-type filter) live inside `app/api/checkout-heatmap/ingest/route.js`, mixed with `NextResponse` and DB calls, so they cannot be unit-tested without extraction. M7.2 extracts the gate logic into a pure helper module and adds unit tests, closing the gap M6.2 left open.
 
 ### M8 — Integration Readiness
 All necessary preparations for embedding the product into a real product (e.g. Autohero). This includes stable API contracts, documented integration seams, clean separation between sandbox-specific and reusable logic, and any authentication or configuration work needed for external deployment.

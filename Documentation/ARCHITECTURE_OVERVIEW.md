@@ -139,7 +139,14 @@ Responsibility:
 
 ### Automated test layer
 
+Two layers from M6.2 onward: **unit tests** (Vitest, fast, no DB or server) run first; **e2e tests** (Playwright, against `localhost:3000`) run after unit tests are green. See `AGENTS.md` → "Unit + e2e test workflow" for the standing convention.
+
 Primary files:
+- `vitest.config.ts` (M6.2: Vitest config — Node environment, `tests/unit/**/*.test.ts`)
+- `tests/unit/checkoutHeatmap.test.ts` — 34 unit tests (M6.2: pure-logic rules for `checkoutHeatmap.js`)
+- `tests/unit/checkoutHeatmapSampling.test.ts` — 7 unit tests (M6.2: `resolveSamplingRate` precedence + clamping)
+- `tests/unit/heatmapConfigStore.test.ts` — 5 unit tests (M6.2: `getDefaultHeatmapConfig` defaults + isolation)
+- `tests/unit/dashboardAuth.test.ts` — 8 unit tests (M6.2: `isAuthorizedToken` + `extractBearerToken`)
 - `playwright.config.ts`
 - `tests/e2e/m1-heatmap.spec.ts` — Tests 1, 2, 3, 4, 5, 6, 10
 - `tests/e2e/m1-heatmap-anchor.spec.ts` — Tests 7, 8, 9 (M2: re-mapped `type:label` anchor IDs)
@@ -161,7 +168,7 @@ Primary files:
 - `tests/e2e/m6-heatmap-viewer.spec.ts` — Tests 55–56 (M6 P5: viewer outcome filter — drop-offs/completers/all each show the correct session count; viewer timeframe filter — out-of-range from/to shows 0 sessions)
 - `tests/e2e/m6-sim.spec.ts` — Tests 57–63 (M6.1: GET /simulate count; POST/DELETE auth gate; generate isolates to sim schema; discard wipes sim only; viewer with source=sim; distribution check; dashboard Simulation section Generate/View/Discard)
 - Tests 2 and 3 (`m1-heatmap.spec.ts`) rewritten in M6 P6: Test 2 uses the dashboard Clear-data confirmation flow; Test 3 uses the dashboard Heatmap section to open the viewer (the TopBar Heatmap dropdown and Clear-data button were removed from the live Shop).
-- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. M6 P4 added Test 54. M6 P5 added Tests 55–56. M6.1 updated Test 54 (four sections) and added Tests 57–63. Full suite: 73 active tests passing.
+- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. M6 P4 added Test 54. M6 P5 added Tests 55–56. M6.1 updated Test 54 (four sections) and added Tests 57–63. M6.2 added 54 Vitest unit tests across 4 files. Full suite: 73 e2e + 54 unit = 127 active tests passing.
 
 Responsibility:
 - verify milestone behavior
