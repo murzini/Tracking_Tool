@@ -267,6 +267,7 @@ export function DashboardClient({ token, initialConfig }) {
                 isEnabled={(step) => !!staged.steps?.[step]}
                 onToggle={(step, v) => updateSteps(step, v)}
                 optionAttr="data-dashboard-step"
+                triggerAttr="data-dashboard-steps-trigger"
               />
             </Row>
 
@@ -436,7 +437,7 @@ function Row({ title, description, children }) {
   );
 }
 
-function MultiSelect({ groups, isEnabled, onToggle, optionAttr }) {
+function MultiSelect({ groups, isEnabled, onToggle, optionAttr, triggerAttr }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -469,6 +470,7 @@ function MultiSelect({ groups, isEnabled, onToggle, optionAttr }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#3C5A7D]/30"
+        {...(triggerAttr ? { [triggerAttr]: true } : {})}
       >
         <span>{summary}</span>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition ${open ? "rotate-180" : ""}`} />

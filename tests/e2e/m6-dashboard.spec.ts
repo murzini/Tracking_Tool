@@ -86,7 +86,8 @@ test("Test 54 — Dashboard auth gate, Data section renders, Save updates config
   // Data section shows the Save button.
   await expect(page.locator("[data-dashboard-save]")).toBeVisible();
 
-  // Step checkboxes for all three checkout steps are visible.
+  // Open the Steps MultiSelect and verify all three checkout steps are present.
+  await page.locator("[data-dashboard-steps-trigger]").click();
   for (const step of ["personal-info", "delivery", "pay"]) {
     await expect(page.locator(`[data-dashboard-step="${step}"]`)).toBeVisible();
   }
@@ -94,13 +95,13 @@ test("Test 54 — Dashboard auth gate, Data section renders, Save updates config
   console.log("  valid token → dashboard renders with all sections ✓");
 
   // ── 4. Toggle a step + Save → config API reflects the change ──────────────
-  // Uncheck the "pay" step checkbox.
-  const payCheckbox = page.locator('[data-dashboard-step="pay"]');
-  await expect(payCheckbox).toBeChecked();
-  await payCheckbox.uncheck();
-  await expect(payCheckbox).not.toBeChecked();
+  // Dropdown is already open. Toggle off "pay" (currently aria-pressed=true).
+  const payOption = page.locator('[data-dashboard-step="pay"]');
+  await expect(payOption).toHaveAttribute("aria-pressed", "true");
+  await payOption.click();
+  await expect(payOption).toHaveAttribute("aria-pressed", "false");
 
-  // Save is now active (was dirty).
+  // Click Save — mousedown outside MultiSelect closes the dropdown first.
   const saveBtn = page.locator("[data-dashboard-save]");
   await expect(saveBtn).not.toBeDisabled();
   await saveBtn.click();
@@ -118,10 +119,11 @@ test("Test 54 — Dashboard auth gate, Data section renders, Save updates config
   // Reset config so later assertions start clean.
   await deleteConfig(page);
 
-  // Reload and verify checkbox is back to checked (config restored to defaults).
+  // Reload and verify pay is back to enabled (config restored to defaults).
   await page.goto(DASHBOARD_URL);
   await page.waitForLoadState("networkidle");
-  await expect(page.locator('[data-dashboard-step="pay"]')).toBeChecked();
+  await page.locator("[data-dashboard-steps-trigger]").click();
+  await expect(page.locator('[data-dashboard-step="pay"]')).toHaveAttribute("aria-pressed", "true");
 
   // ── 5. Clear-data confirmation → confirm → all sessions wiped ─────────────
   // Seed a session via the API.

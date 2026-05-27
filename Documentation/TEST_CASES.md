@@ -442,8 +442,8 @@ All test helpers that navigate to checkout now complete the M5 login step (fill 
 **Test 54 — Dashboard auth gate + Data section renders + Save updates config + Clear-data wipes sessions.** ✅ *Implemented P4 (2026-05-27) — `tests/e2e/m6-dashboard.spec.ts`.*
 - Navigate to `/dashboard?token=bad-token` → `[data-dashboard-blocked]` visible (wrong token → access denied).
 - Navigate to `/dashboard` (no token) → `[data-dashboard-blocked]` visible.
-- Navigate to `/dashboard?token=m6-dev-token` → all three `[data-dashboard-section]` headers (Data / Heatmap / Report) visible; Save button and step checkboxes present.
-- Uncheck the "pay" step checkbox → click Save → assert "Saved" feedback appears → `GET /api/checkout-heatmap/config` returns `steps.pay === false`.
-- Reload dashboard with defaults restored → "pay" checkbox back to checked.
+- Navigate to `/dashboard?token=m6-dev-token` → all three `[data-dashboard-section]` headers (Data / Heatmap / Report) visible; Save button and Steps MultiSelect trigger present.
+- Open the Steps MultiSelect → assert all three step options visible with `aria-pressed="true"` → click "pay" to toggle off (`aria-pressed="false"`) → click Save → assert "Saved" feedback appears → `GET /api/checkout-heatmap/config` returns `steps.pay === false`.
+- Reload dashboard with defaults restored → open Steps MultiSelect → "pay" option has `aria-pressed="true"` (back to default).
 - Seed a session via API → click "Clear all data" → confirmation pop-up appears → confirm → overlay closes → "All data cleared" feedback → `GET /api/checkout-heatmap` returns 0 sessions.
 - Evidence: `test-results/Test 54 - Dashboard auth and Data section/Check evidence/dashboard.png`
