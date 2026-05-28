@@ -600,13 +600,13 @@ export function DashboardClient({ token, initialConfig }) {
           <section data-dashboard-section="report" className="border-t border-slate-100 px-5 py-4">
             <h2 className="mb-2 text-xl font-bold text-[#1F2A37]">Report</h2>
             <div className="flex flex-col items-center py-4">
-              <button
-                disabled
-                className="inline-flex cursor-not-allowed items-center gap-2 rounded-2xl bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-400"
+              <a
+                href={`/dashboard/report?token=${token}`}
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#2e4a6a]"
               >
-                Generate Report
-              </button>
-              <p className="mt-3 text-xs text-slate-400">Report generation is not yet implemented.</p>
+                View Report (mockup)
+              </a>
+              <p className="mt-3 text-xs text-slate-400">AI-powered report coming in M7.</p>
             </div>
           </section>
         </div>
