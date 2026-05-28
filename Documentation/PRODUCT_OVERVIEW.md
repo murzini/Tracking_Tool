@@ -18,7 +18,7 @@
 *Quick orientation so the live state isn't buried in the decision log below. For session-to-session continuity, see the repo-root `onboarding.md`.*
 
 - **Last closed: M6.2 — Unit Test Foundation (2026-05-28).** 54 Vitest unit tests across 4 files, all passing. No e2e changes. Full detail: the **M6.2** subsection under Future Milestones.
-- **Active: M7 (AI-powered report).** M7.1 + M7.2 + M7.3 done (113 unit tests total). Part 4 (dashboard changes) next.
+- **Active: M7 (AI-powered report).** M7.1 + M7.2 + M7.3 done (126 unit tests total). Part 4 (dashboard changes) next.
 - **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API), M4 (Extended Interaction Capture), M5 (Login Step and Individual Session Attribution), M6 (Admin Dashboard). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
 - **Where things live in this doc:** most recently closed scope → the **M6** section; settled per-milestone decisions → the **M1–M6** sections (history, marked `STATUS: CLOSED`); cross-cutting debt → the **Tech Debt** register; not-yet-started work → **Future Milestones** M6.1–M8; speculative ideas → **Potential post-MVP items**.
 - **This is an append-only decision log** — later dated notes can supersede earlier ones in place. When two notes seem to conflict, the most recent dated note and the current code win.

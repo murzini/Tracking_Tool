@@ -794,9 +794,9 @@ Evidence: `test-results/M7 Test 68 - Gate note text/Check evidence/`
 
 ### Unit tests — M7.3 (M1–M5 biz logic audit)
 
-**STATUS: DONE (2026-05-28). 19 unit tests, all green. 113 unit tests total.**
+**STATUS: DONE (2026-05-28). 32 unit tests, all green. 126 unit tests total.**
 
-Audit of M1–M5 business logic. All major functions in `checkoutHeatmap.js` and `checkoutHeatmapSampling.js` were already tested. Two untested pure-logic clusters extracted into new modules:
+Audit of M1–M5 business logic. All major functions in `checkoutHeatmap.js` and `checkoutHeatmapSampling.js` were already tested. Three untested pure-logic clusters extracted into new modules:
 
 #### `lib/prototype/resumeRefMatch.js` — `isResumableRef` (10 tests, `tests/unit/resumeRefMatch.test.ts`)
 
@@ -828,6 +828,25 @@ Rules covered (priority order):
 - `unload` true, no signals → `"left-browser"`.
 - No signals, no unload → `null`.
 - Expired navClick + `unload` true → `"left-browser"`.
+
+#### `lib/prototype/scannerUtils.js` — `slugify` + `safeAttrSelector` (13 tests, `tests/unit/scannerUtils.test.ts`)
+
+Extracted from `checkoutScanner.js` (were private functions). Used for anchor ID generation and CSS selector construction.
+
+`slugify` rules covered:
+- Empty string / null / undefined → `""`.
+- Lowercases input.
+- Trims leading/trailing whitespace.
+- Replaces non-alphanumeric sequences with a single `-`.
+- Strips leading/trailing hyphens from result.
+- Slices output to 60 characters.
+- Preserves digits.
+
+`safeAttrSelector` rules covered:
+- Wraps id in `[data-heatmap-id="..."]`.
+- Escapes `"` inside id to `\"`.
+- Empty string id → `[data-heatmap-id=""]`.
+- Colon in id does not need escaping.
 
 ---
 
