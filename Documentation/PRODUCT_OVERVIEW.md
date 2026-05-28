@@ -816,15 +816,29 @@ AI-generated hypotheses for improving conversion. Each hypothesis: problem state
 
 M7.1 → M7.2 → M7.3 → Part 4 (dashboard) → Part 5 (data aggregation) → Part 6 (screenshots) → Part 7 (AI integration) → Part 8 (report page) → Part 9 (close).
 
-- **Part 1 (M7.1):** Extract capture-window date-check to a pure module + unit tests.
-- **Part 2 (M7.2):** Extract ingest config gates to a pure module + unit tests.
+**Design principle for all parts: maximise unit-testability.** Every part below extracts pure logic into its own module so it can be unit-tested without DB or browser. Any function that takes inputs and returns outputs (no side effects, no I/O) goes in a pure module under `lib/prototype/` with matching unit tests in `tests/unit/`. SQL queries, API routes, and React components stay thin wrappers around the pure logic.
+
+- **Part 1 (M7.1):** Extract capture-window date-check to a pure module (`captureWindowCheck.js`) + unit tests.
+- **Part 2 (M7.2):** Extract ingest config gates to a pure module (`ingestConfigGates.js`) + unit tests.
 - **Part 3 (M7.3):** Audit M1–M5 business logic for unit-testable rules; extract where needed; write unit tests.
-- **Part 4:** Dashboard changes — min sessions dropdown, accumulated session count, Report section position, button enablement logic, note text.
-- **Part 5:** Data aggregation service — SQL queries per report section per step; finalise heatmap screenshot capture approach (Playwright vs `canvas.toDataURL()`).
-- **Part 6:** Heatmap screenshot capture implementation.
-- **Part 7:** Claude Opus 4.7 integration — report generation API route (`/api/checkout-heatmap/report`); structured prompt; parse response JSON.
-- **Part 8:** Report page — replace static mockup with real data + real screenshots + real Claude output; progress bar.
+- **Part 4:** Dashboard changes. **Pure modules to extract:** `reportGateLogic.js` (is accumulated count ≥ selected minimum? compute gate state + note text). React component is a thin wrapper around it. Unit tests for the gate logic.
+- **Part 5:** Data aggregation service. **Pure modules to extract:** `reportAggregationTransforms.js` (functions that take raw DB rows + return shaped report-section data for each section: funnel totals, drop-off rates, field stats, event sequences, comparisons, etc.). SQL queries fetch rows; transforms shape them. Unit tests run against mock row inputs — no DB. Heatmap screenshot capture approach (Playwright vs `canvas.toDataURL()`) finalised here.
+- **Part 6:** Heatmap screenshot capture implementation. **Pure modules to extract (if applicable):** any coordinate/scaling/cropping math goes into `heatmapScreenshotHelpers.js` with unit tests; the actual capture I/O stays thin.
+- **Part 7:** Claude Opus 4.7 integration. **Pure modules to extract:** `reportPromptBuilder.js` (takes aggregated data + returns the prompt string/structure for Claude — pure, fully testable) and `reportResponseParser.js` (takes raw Claude JSON response + validates/parses/normalises it — pure, fully testable with mock responses). API route (`/api/checkout-heatmap/report`) is a thin wrapper that calls the prompt builder, makes the API call, calls the response parser. Unit tests cover prompt shape, response parsing, error cases, malformed responses.
+- **Part 8:** Report page — replace static mockup with real data + real screenshots + real Claude output; progress bar. **Pure modules to extract (if applicable):** any data-formatting helpers for rendering (`reportRenderHelpers.js`) with unit tests; React components stay thin.
 - **Part 9:** Close gates (unit tests, e2e tests, doc review, agent review, tech debt review, commit).
+
+#### M7 unit-test surface (summary)
+
+In addition to M7.1, M7.2, M7.3 unit tests, the new M7 code will be covered by:
+- `tests/unit/reportGateLogic.test.ts` — min-sessions gate state + note text (Part 4)
+- `tests/unit/reportAggregationTransforms.test.ts` — per-section data shaping (Part 5)
+- `tests/unit/heatmapScreenshotHelpers.test.ts` — any pure math/helpers (Part 6, if applicable)
+- `tests/unit/reportPromptBuilder.test.ts` — prompt construction (Part 7)
+- `tests/unit/reportResponseParser.test.ts` — response parsing + validation (Part 7)
+- `tests/unit/reportRenderHelpers.test.ts` — render helpers (Part 8, if applicable)
+
+Exact rule lists per file produced at part-start; tests added per part, kept green continuously.
 
 #### M7.1 — Capture-window check extraction + unit test (deferred from M6.2)
 The capture-window date-boundary rule (the `to`-as-midnight-UTC bug) currently lives **inside** `checkoutHeatmapClient.js`, a browser module. M7.1 extracts it into a pure module and adds unit tests covering `from`/`to` boundary logic, closing the gap M6.2 left open.

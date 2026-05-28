@@ -28,24 +28,36 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 ## Current state
 
-- **M1–M6.2 COMPLETE and signed off.** M6.2 (Unit Test Foundation) fully closed 2026-05-28. 54 Vitest unit tests across 4 pure-logic modules all green; `milestone-prereqs` READY; committed `b851547`. Capture-window check (M7.1) and ingest config gates (M7.2) deferred pending extraction to pure modules.
-- **GitHub + Vercel DONE (2026-05-28).** Live at `tracking-tool-kappa.vercel.app`. Next.js upgraded to 14.2.29 (RSC rendering fix).
-- **Heatmap header toggle buttons DONE (2026-05-28).** Desktop/Mobile + Clicks/Moves/Scrolls pill buttons added to `app/checkout/[sku]/heatmap/page.jsx`. Commit `32b5acc`.
-- **PAUSED — simulator realism fixes (mid-task, 2026-05-28).** Two changes agreed but NOT yet implemented in `lib/prototype/checkoutHeatmapSimulator.js`:
-  1. **Weighted click distribution** — currently `genClicks` picks anchors equally (`anchors[ri(0, anchors.length - 1)]`). Need weights by anchor prefix: `cta:` ~30%, `toggle:` ~15%, `dropdown:` ~12%, `text:`/`date:`/`tel:` ~8% each, `tooltip:`/`icon:` ~4-5%, `nav:`/`display:`/`error:` ~1-3%.
-  2. **Mouse-moves spread across full page** — currently `genMoves` starts Y at `ri(50, 400)` (only top), and desktop `maxX = 620` (hardcoded, misses right sidebar). Need: start Y across full `maxY`, use `vpWidth` (not 620) for desktop horizontal range, larger step variance to cover more area.
+- **M1–M6.2 CLOSED and signed off.** M6.2 fully closed 2026-05-28, committed `b851547`. 54 Vitest unit tests across 4 pure-logic modules; 73 e2e tests; all green.
+- **GitHub + Vercel live.** `tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`.
+- **Simulator realism fixes DONE (2026-05-28).** Weighted click distribution (commit `7ed06df`) + mouse-moves spread across full viewport (commit `7d9b59f`) — both in `lib/prototype/checkoutHeatmapSimulator.js`.
+- **M7 report mockup DONE (2026-05-28).** Static `/dashboard/report` page with 12-section placeholder structure built and pushed (commit `7572f8c`); used to confirm format direction. User-validated; will be replaced with real data in Part 8. Dashboard "Generate Report" button now links to it.
+- **M7 milestone-start READY (2026-05-28).** All 7 prereqs MET. Scope frozen, 9-part implementation plan documented, anticipated tech debt recorded (7 items), test plan logged (5 new e2e tests 64-68 + unit tests for M7.1/M7.2/M7.3 + new M7 code). Committed `4954a4c`. Logged in `AGENT_RUN_LOG.csv`: `milestone-test-planning` OK + `milestone-start` OK.
+- **M7 scope frozen (key decisions):**
+  - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
+  - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
+  - **Location**: dedicated `/dashboard/report?token=...` page.
+  - **Generation UX**: progress bar (~30-50s expected).
+  - **Min-sessions gate**: new dropdown (100/200/500/1000) in Report section + live accumulated count; Generate Report button disabled until threshold met.
+  - **Report section moved** in dashboard: after Heatmap, before Simulation.
+  - **Heatmap screenshots = real** (capture approach Playwright vs canvas — decided in Part 5).
+  - **Design principle**: every part extracts pure logic to its own module; React/SQL/API stay thin wrappers. Pure modules listed per part in `PRODUCT_OVERVIEW.md` → M7 sequencing.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Resume simulator fixes** above in `lib/prototype/checkoutHeatmapSimulator.js`. Push to `main`, verify sim heatmap looks more realistic at `tracking-tool-kappa.vercel.app/dashboard`, delete temp clone. Then return to M7: run `milestone-start` for M7. Full scope in `PRODUCT_OVERVIEW.md` → M7. Sequence: M6 → M6.1 → M6.2 → **M7** → M7.1 → M7.2.
+**Start M7 Part 1 (M7.1).** Extract the capture-window date-check from `lib/prototype/checkoutHeatmapClient.js` into a new pure module `lib/prototype/captureWindowCheck.js`, then write unit tests at `tests/unit/captureWindowCheck.test.ts` covering every boundary case (see `TEST_CASES.md` → M7 → Unit tests — M7.1).
+
+**M7 sequence:** M7.1 → M7.2 → M7.3 → Part 4 (dashboard changes) → Part 5 (data aggregation + screenshot approach) → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
+
+**Before Part 7:** add `ANTHROPIC_API_KEY` to `.env.local` and Vercel env vars (anticipated tech debt item).
 
 ## What to read first, in order
 
 1. `Documentation/AGENTS.md` — working rules + agent catalogue. Governs how all work is done.
-2. `Documentation/PRODUCT_OVERVIEW.md` — M6.2 closed; M7 scope in "Future Milestones".
-3. `Documentation/TEST_CASES.md` → M6.1 — 73 e2e tests; M6.2 — 54 unit tests.
-4. `Documentation/ARCHITECTURE_OVERVIEW.md` — M6.2 unit test layer added.
+2. `Documentation/PRODUCT_OVERVIEW.md` → **M7** — frozen scope, 9-part plan, unit-testability principle, anticipated tech debt. Also "M7 unit-test surface" for the pure-module map.
+3. `Documentation/TEST_CASES.md` → **M7** — Tests 64-68 (e2e) + M7.1/M7.2/M7.3 unit specs + new M7 code unit specs (`reportGateLogic`, `reportAggregationTransforms`, `reportPromptBuilder`, `reportResponseParser`).
+4. `Documentation/ARCHITECTURE_OVERVIEW.md` — M6.2 unit test layer added. (M7 architecture detail will be added during implementation.)
 
 **Reference — read as needed:**
 5. `Documentation/DATA.md` — Postgres schema (`sessions` + `events`); `exit_reason` semantics.

@@ -782,3 +782,93 @@ Evidence: `test-results/M7 Test 68 - Gate note text/Check evidence/`
 ### Unit tests — M7.3 (M1–M5 biz logic audit)
 
 *Scope: TBD — determined by audit in Part 3. Results documented here at implementation.*
+
+---
+
+### Unit tests — M7 new code (`reportGateLogic.js`, Part 4)
+
+*Scope: pure module computing the min-sessions gate state. Used by the Report section in the dashboard. Rules to cover:*
+
+- Accumulated count = 0, min = 100 → gate state = `disabled`.
+- Accumulated count = 50, min = 100 → gate state = `disabled`.
+- Accumulated count = 100, min = 100 → gate state = `enabled`.
+- Accumulated count = 500, min = 100 → gate state = `enabled`.
+- Accumulated count = 100, min = 200 → gate state = `disabled`.
+- Note text composes correctly with current min + accumulated values (e.g. `"Report requires at least 200 sessions. Currently accumulated: 100."`).
+- Note text handles 0 accumulated.
+- Note text handles edge values (1, very large counts).
+
+---
+
+### Unit tests — M7 new code (`reportAggregationTransforms.js`, Part 5)
+
+*Scope: pure functions that take raw DB rows + return shaped report-section data. SQL queries fetch rows; transforms shape them. Run against mock row inputs — no DB. Rules to cover (per section):*
+
+**Executive Summary transforms:**
+- Total sessions counter (from rows).
+- Sessions by exit reason (group + count: `idle`, `left-browser`, `nav-click`, `back`).
+- Returned-and-completed counter (visitorId-based).
+- Per-step entry/exit totals (group by step + outcome).
+- Last 5 actions before drop-off (event sequence extraction from a session).
+
+**Step Analysis transforms (per step, per sub-section):**
+- Time-to-first-interaction (min event timestamp − session start).
+- Active vs idle time split (sum stepActiveMs vs stepIdleMs).
+- Element visibility duration (group element-visible/hidden pairs).
+- Hesitation hotspots (mouse-move dwell areas without nearby clicks).
+- Field abandonment rate (per anchor: field-focus without field-change before exit).
+- Validation error sequences (last N validation-error events before drop-off).
+- Rage-click detection (≥3 clicks on same element within 2s).
+- Dead-click detection (clicks on non-interactive areas).
+- Drop-off triggers (group by last event type before exit).
+- Zero-click drop-off counter (sessions with no `click` events, outcome=abandoned).
+- Session resume counter (sessions where lastInteractionAt < 30s after a gap).
+- Returning visitors stats (visitorId with >1 session, drop-off pattern).
+- Completers vs drop-off comparison (group by outcome, average metrics).
+- Desktop vs Mobile comparison (group by view).
+
+**Edge cases:**
+- Empty rows array → returns zeros / empty sections (does not crash).
+- Single session → all aggregations valid.
+- Sessions with mixed outcomes (completed, abandoned, in-progress).
+
+---
+
+### Unit tests — M7 new code (`heatmapScreenshotHelpers.js`, Part 6 — if applicable)
+
+*Scope: any pure math/coordinate/cropping helpers for screenshot capture. Actual capture I/O stays thin and is e2e-tested. Rules TBD at part-start once the capture approach (Playwright vs canvas) is finalised in Part 5.*
+
+---
+
+### Unit tests — M7 new code (`reportPromptBuilder.js`, Part 7)
+
+*Scope: pure function that takes aggregated data + returns the prompt string/structure for Claude Opus 4.7. Rules to cover:*
+
+- Prompt includes all four sections (intro, exec summary, step analysis, conclusions) as instructions.
+- Prompt includes the aggregated data for each section.
+- Prompt includes the Data config context (which steps were enabled, which timeframe).
+- Prompt instructs Claude to return structured JSON in a specific schema.
+- Prompt is well-formed with section delimiters / clear structure.
+- Empty / missing aggregation data is handled gracefully (sends empty section, doesn't crash).
+- Token count stays within bounds for typical input (~5k tokens) — sanity check.
+
+---
+
+### Unit tests — M7 new code (`reportResponseParser.js`, Part 7)
+
+*Scope: pure function that takes raw Claude JSON response + validates/parses/normalises it. Rules to cover:*
+
+- Valid response with all 4 sections → returns parsed report object.
+- Response missing one section → returns partial report with a flag indicating which section is missing.
+- Malformed JSON → throws a typed error with details.
+- JSON valid but schema mismatched (wrong field types) → throws a typed error.
+- Extra fields in response → ignored gracefully.
+- Empty response → throws a typed error.
+- Mock Claude response with valid hypotheses array → parses correctly with priority levels.
+- Mock Claude response where hypothesis has no draft design → handled (null/empty value).
+
+---
+
+### Unit tests — M7 new code (`reportRenderHelpers.js`, Part 8 — if applicable)
+
+*Scope: any pure formatting helpers used by the report page React components. Rules TBD at part-start once render needs are clear.*
