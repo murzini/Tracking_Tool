@@ -10,7 +10,7 @@ A heatmap product on a Next.js sandbox (Shop). It records visitor behaviour on t
 
 **GitHub:** `https://github.com/murzini/Tracking_Tool` (main branch — source of truth)
 **Vercel:** `https://tracking-tool-kappa.vercel.app` (auto-deploys on push to main)
-**Workflow:** local repo is gone. Clone to `C:\Temp\Tracking_Tool` → edit → push → delete temp folder. Never leave temp clones behind.
+**Workflow:** local repo is gone. Clone to `C:\Temp\Tracking_Tool` → edit → push → delete temp folder. Never leave temp clones behind. If a folder already exists at `C:\Temp`, delete it first and reclone — existing clones may be stale and `git status` will silently say "up to date" without a `git fetch`.
 
 ## Model selection
 
@@ -32,7 +32,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 - **GitHub + Vercel live.** `tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`.
 - **M7 milestone-start READY (2026-05-28).** Scope frozen, 9-part plan, 7 anticipated tech-debt items, test plan logged. Committed `4954a4c`.
 - **M7.1 DONE (2026-05-28).** `isCaptureWindowOpen` extracted from `checkoutHeatmapClient.js` → new pure module `lib/prototype/captureWindowCheck.js`; injectable `now` param for testability. 16 unit tests at `tests/unit/captureWindowCheck.test.ts` covering all boundary cases. Committed `e98c248`. Closes M6.2 deferred item.
-- **M7.2 DONE (2026-05-28).** Four ingest config gates extracted from `app/api/checkout-heatmap/ingest/route.js` → new pure module `lib/prototype/ingestConfigGates.js` (`isStepGated`, `isSamplingGated`, `isCaptureWindowGated`, `filterEventsByType`). 24 unit tests at `tests/unit/ingestConfigGates.test.ts`. 94 unit tests total, all green. Closes M6.2 deferred item.
+- **M7.2 DONE (2026-05-28).** Four ingest config gates extracted from `app/api/checkout-heatmap/ingest/route.js` → new pure module `lib/prototype/ingestConfigGates.js` (`isStepGated`, `isSamplingGated`, `isCaptureWindowGated`, `filterEventsByType`). 24 unit tests at `tests/unit/ingestConfigGates.test.ts`. 94 unit tests total, all green. Committed `9ea5049`. Closes M6.2 deferred item.
 - **M7 scope frozen (key decisions):**
   - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
   - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
@@ -43,6 +43,12 @@ See `CLAUDE.md` → "Model selection" for the full rule.
   - **Heatmap screenshots = real** (capture approach Playwright vs canvas — decided in Part 5).
   - **Design principle**: every part extracts pure logic to its own module; React/SQL/API stay thin wrappers.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
+
+**Verify state before starting work** (takes 30 seconds, avoids acting on stale info):
+1. `git fetch origin && git log --oneline -3` — top commit must be `9ea5049` (or newer if onboarding was refreshed after this session).
+2. Confirm files exist: `lib/prototype/ingestConfigGates.js`, `tests/unit/ingestConfigGates.test.ts`.
+3. `npm install && npm run test:unit` — must print `94 passed`.
+If step 1 shows an older top commit, your clone is stale — delete it and reclone.
 
 ## Next action
 
