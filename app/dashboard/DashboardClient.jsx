@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Backpack, Check, ChevronDown, ExternalLink, Monitor, Save, Smartphone, Trash2 } from "lucide-react";
+import {
+  isReportGateMet,
+  getGateNoteText,
+  MIN_SESSIONS_OPTIONS,
+  DEFAULT_MIN_SESSIONS,
+} from "../../lib/prototype/reportGateLogic.js";
 
 const STEP_LABELS = {
   "personal-info": "Personal Information",
@@ -140,7 +146,8 @@ export function DashboardClient({ token, initialConfig }) {
       .then((r) => r.json())
       .then((d) => setSimCount(typeof d.count === "number" ? d.count : 0))
       .catch(() => setSimCount(0));
-  }, []);
+    fetchReportCount(initialConfig);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleGenerate() {
     if (simGenerating) return;
@@ -188,6 +195,22 @@ export function DashboardClient({ token, initialConfig }) {
 
   function handleViewSim() {
     window.open("/checkout/001/heatmap?step=personal-info&source=sim", "_blank", "noopener");
+  }
+
+  // Report section
+  const [reportMinSessions, setReportMinSessions] = useState(DEFAULT_MIN_SESSIONS);
+  const [reportSessionCount, setReportSessionCount] = useState(null); // null = loading
+
+  function fetchReportCount(cfg) {
+    const from = cfg?.captureWindow?.from ?? null;
+    const to = cfg?.captureWindow?.to ?? null;
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    fetch(`/api/checkout-heatmap/query?${params.toString()}`)
+      .then((r) => r.json())
+      .then((d) => setReportSessionCount(Array.isArray(d.sessions) ? d.sessions.length : 0))
+      .catch(() => setReportSessionCount(0));
   }
 
   // Heatmap section — local filter state (not persisted, no Save needed)
@@ -267,6 +290,7 @@ export function DashboardClient({ token, initialConfig }) {
       });
       if (!res.ok) throw new Error("Save failed");
       setConfig(staged);
+      fetchReportCount(staged);
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus(null), 2500);
     } catch {
@@ -533,6 +557,46 @@ export function DashboardClient({ token, initialConfig }) {
             </div>
           </section>
 
+          {/* ─── REPORT ─── */}
+          <section data-dashboard-section="report" className="border-t border-slate-100 px-5 py-4">
+            <h2 className="mb-4 text-xl font-bold text-[#1F2A37]">Report</h2>
+
+            <Row title="Minimum sessions" description="Minimum accumulated sessions required before generating a report.">
+              <select
+                value={String(reportMinSessions)}
+                onChange={(e) => setReportMinSessions(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-200 px-2 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#3C5A7D]/30"
+                data-dashboard-report-min-sessions
+              >
+                {MIN_SESSIONS_OPTIONS.map((n) => (
+                  <option key={n} value={String(n)}>{n.toLocaleString()}</option>
+                ))}
+              </select>
+            </Row>
+
+            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <span className="text-sm font-medium text-slate-700" data-dashboard-report-session-count>
+                {reportSessionCount === null
+                  ? "Loading…"
+                  : `${reportSessionCount.toLocaleString()} sessions accumulated`}
+              </span>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={!isReportGateMet(reportSessionCount, reportMinSessions)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460] disabled:opacity-40"
+                data-dashboard-report-generate
+              >
+                Generate Report
+              </button>
+              <p className="text-xs text-slate-400" data-dashboard-report-note>
+                {getGateNoteText(reportSessionCount, reportMinSessions)}
+              </p>
+            </div>
+          </section>
+
           {/* ─── SIMULATION ─── */}
           <section data-dashboard-section="simulation" className="border-t border-slate-100">
             <div className="px-5 py-4">
@@ -593,20 +657,6 @@ export function DashboardClient({ token, initialConfig }) {
                   View Simulation
                 </button>
               </div>
-            </div>
-          </section>
-
-          {/* ─── REPORT ─── */}
-          <section data-dashboard-section="report" className="border-t border-slate-100 px-5 py-4">
-            <h2 className="mb-2 text-xl font-bold text-[#1F2A37]">Report</h2>
-            <div className="flex flex-col items-center py-4">
-              <a
-                href={`/dashboard/report?token=${token}`}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#2e4a6a]"
-              >
-                View Report (mockup)
-              </a>
-              <p className="mt-3 text-xs text-slate-400">AI-powered report coming in M7.</p>
             </div>
           </section>
         </div>
