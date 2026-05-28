@@ -18,7 +18,7 @@
 *Quick orientation so the live state isn't buried in the decision log below. For session-to-session continuity, see the repo-root `onboarding.md`.*
 
 - **Last closed: M6.2 — Unit Test Foundation (2026-05-28).** 54 Vitest unit tests across 4 files, all passing. No e2e changes. Full detail: the **M6.2** subsection under Future Milestones.
-- **Active: none.** Next milestone is M7 (AI-powered report).
+- **Active: M7 (AI-powered report).** M7.1 + M7.2 done (94 unit tests total). M7.3 next.
 - **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API), M4 (Extended Interaction Capture), M5 (Login Step and Individual Session Attribution), M6 (Admin Dashboard). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
 - **Where things live in this doc:** most recently closed scope → the **M6** section; settled per-milestone decisions → the **M1–M6** sections (history, marked `STATUS: CLOSED`); cross-cutting debt → the **Tech Debt** register; not-yet-started work → **Future Milestones** M6.1–M8; speculative ideas → **Potential post-MVP items**.
 - **This is an append-only decision log** — later dated notes can supersede earlier ones in place. When two notes seem to conflict, the most recent dated note and the current code win.
@@ -174,9 +174,9 @@ Tech debt M7 is likely to introduce, identified upfront at milestone-start (2026
 - **Suite runtime growth.** M7.3 biz-logic audit may add many new unit tests; revisit parallelism/sharding if total runtime becomes painful.
 
 ### Anticipated (M6.2) — identified at planning
-Tech debt M6.2 introduced by scoping unit tests only to already-pure modules; non-unit-testable logic was deferred. No critical items. Outcomes to be marked at M7.1/M7.2 close.
-- **Capture-window date check not unit-tested (deferred to M7.1).** The local-day boundary check lives inside `checkoutHeatmapClient.js`, a browser module that cannot be imported in Node/Vitest without globals. Extract to a pure helper module in M7.1, then add unit tests covering `from`/`to` boundary logic.
-- **Ingest config gates not unit-tested (deferred to M7.2).** The four gates (step gate, sampling gate, capture-window gate, event-type filter) are embedded inside `app/api/checkout-heatmap/ingest/route.js`, mixed with `NextResponse` and DB calls. Extract to a pure helper module in M7.2, then add unit tests for each gate.
+Tech debt M6.2 introduced by scoping unit tests only to already-pure modules; non-unit-testable logic was deferred. No critical items.
+- **Capture-window date check not unit-tested (deferred to M7.1). RESOLVED (M7.1, 2026-05-28).** Extracted to `lib/prototype/captureWindowCheck.js`; 16 unit tests added.
+- **Ingest config gates not unit-tested (deferred to M7.2). RESOLVED (M7.2, 2026-05-28).** Extracted to `lib/prototype/ingestConfigGates.js`; 24 unit tests added.
 
 ## Potential post-MVP items
 

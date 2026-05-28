@@ -754,28 +754,41 @@ Evidence: `test-results/M7 Test 68 - Gate note text/Check evidence/`
 
 ### Unit tests — M7.2 (`lib/prototype/ingestConfigGates.js`)
 
-*Scope: pure module extracted from `app/api/checkout-heatmap/ingest/route.js`. Cover each of the four gates. Exact test count determined at implementation; each rule gets ≥1 test. Rules to cover:*
+**STATUS: DONE (2026-05-28). 24 unit tests, all green.**
 
-**Step gate:**
-- Enabled step → passes.
-- Disabled step → blocked.
-- Unknown step → blocked.
+*Module extracted from `app/api/checkout-heatmap/ingest/route.js`. Four gate functions, each fail-open (only an explicit `false` gates).*
 
-**Sampling gate:**
-- Rate 0% → always blocked.
-- Rate 100% → always passes.
-- Rate 50% → passes ~50% (probabilistic; test with seeded random or mock).
+**`isStepGated(config, step)` — 5 tests:**
+- Step explicitly enabled → not gated.
+- Step explicitly disabled → gated.
+- Step not in config → fail-open (not gated).
+- `config.steps` missing → fail-open.
+- null config → fail-open.
 
-**Capture-window gate:**
-- Window open → passes.
-- Window closed → blocked.
-- No window config → fail-open (passes).
+**`isSamplingGated(config)` — 6 tests:**
+- `samplingRate` 0 → gated.
+- `samplingRate` negative → gated (≤ 0).
+- `samplingRate` 0.5 → not gated.
+- `samplingRate` 1 → not gated.
+- `samplingRate` missing → fail-open.
+- `samplingRate` is string `"0"` → fail-open (not a number).
 
-**Event-type filter:**
-- Enabled event type → passes.
-- Disabled event type → filtered out.
-- Unknown event type → filtered out.
-- Mixed batch → enabled types pass, disabled filtered.
+**`isCaptureWindowGated(config, now)` — 5 tests (delegates to `isCaptureWindowOpen`):**
+- No `captureWindow` → fail-open.
+- null config → fail-open.
+- `now` before `from` → gated.
+- `now` after `to` → gated.
+- `now` within `[from, to]` → not gated.
+
+**`filterEventsByType(config, events)` — 8 tests:**
+- No `eventTypes` in config → all events pass through.
+- null `eventTypes` → all events pass through.
+- All types enabled → all events pass through.
+- Click disabled → click events stripped.
+- Mixed batch (click disabled, scroll enabled) → only scroll passes.
+- Unrecognized type → passes through (absent from config = not disabled).
+- Event with missing type → passes through.
+- Empty events array → empty array.
 
 ---
 
