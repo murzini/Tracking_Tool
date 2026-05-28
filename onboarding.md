@@ -8,9 +8,9 @@ Quick start for a new session. **Review and trim this file at the start of every
 
 A heatmap product on a Next.js sandbox (Shop). It records visitor behaviour on the three checkout steps and shows it as overlays, to learn why people drop off. A POC, meant for later integration into Autohero.
 
-**Local repo:** `C:\My AI Projects\M0`
-**GitHub:** `https://github.com/murzini/Tracking_Tool` (main branch)
+**GitHub:** `https://github.com/murzini/Tracking_Tool` (main branch — source of truth)
 **Vercel:** `https://tracking-tool-kappa.vercel.app` (auto-deploys on push to main)
+**Workflow:** local repo is gone. Clone to `C:\Temp\Tracking_Tool` → edit → push → delete temp folder. Never leave temp clones behind.
 
 ## Model selection
 
@@ -29,12 +29,16 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 ## Current state
 
 - **M1–M6.2 COMPLETE and signed off.** M6.2 (Unit Test Foundation) fully closed 2026-05-28. 54 Vitest unit tests across 4 pure-logic modules all green; `milestone-prereqs` READY; committed `b851547`. Capture-window check (M7.1) and ingest config gates (M7.2) deferred pending extraction to pure modules.
-- **GitHub + Vercel DONE (2026-05-28).** Code pushed to `Tracking_Tool` repo; live at `tracking-tool-kappa.vercel.app`. Next.js upgraded to 14.2.29 (RSC rendering fix). Future pushes to `tracking_tool` remote auto-deploy to Vercel.
+- **GitHub + Vercel DONE (2026-05-28).** Live at `tracking-tool-kappa.vercel.app`. Next.js upgraded to 14.2.29 (RSC rendering fix).
+- **Heatmap header toggle buttons DONE (2026-05-28).** Desktop/Mobile + Clicks/Moves/Scrolls pill buttons added to `app/checkout/[sku]/heatmap/page.jsx`. Commit `32b5acc`.
+- **PAUSED — simulator realism fixes (mid-task, 2026-05-28).** Two changes agreed but NOT yet implemented in `lib/prototype/checkoutHeatmapSimulator.js`:
+  1. **Weighted click distribution** — currently `genClicks` picks anchors equally (`anchors[ri(0, anchors.length - 1)]`). Need weights by anchor prefix: `cta:` ~30%, `toggle:` ~15%, `dropdown:` ~12%, `text:`/`date:`/`tel:` ~8% each, `tooltip:`/`icon:` ~4-5%, `nav:`/`display:`/`error:` ~1-3%.
+  2. **Mouse-moves spread across full page** — currently `genMoves` starts Y at `ri(50, 400)` (only top), and desktop `maxX = 620` (hardcoded, misses right sidebar). Need: start Y across full `maxY`, use `vpWidth` (not 620) for desktop horizontal range, larger step variance to cover more area.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-Run `milestone-start` for M7. Full scope in `PRODUCT_OVERVIEW.md` → M7. Sequence: M6 → M6.1 → M6.2 → **M7** → M7.1 → M7.2.
+**Resume simulator fixes** above in `lib/prototype/checkoutHeatmapSimulator.js`. Push to `main`, verify sim heatmap looks more realistic at `tracking-tool-kappa.vercel.app/dashboard`, delete temp clone. Then return to M7: run `milestone-start` for M7. Full scope in `PRODUCT_OVERVIEW.md` → M7. Sequence: M6 → M6.1 → M6.2 → **M7** → M7.1 → M7.2.
 
 ## What to read first, in order
 
