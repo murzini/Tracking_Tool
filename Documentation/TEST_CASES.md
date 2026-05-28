@@ -650,3 +650,135 @@ No e2e tests were added, removed, or changed. The unit tests cover pure-logic ru
 - Absent (null) Authorization header → `null`.
 - Non-Bearer scheme (`Basic …`) → `null`.
 - `Bearer` with no token following → `null`.
+
+---
+
+## M7 — AI Report Generation
+
+**Status: IN PLANNING. Test plan produced 2026-05-28.**
+
+### E2E tests (Tests 64–68)
+
+Keep as-is: all 63 existing tests. No existing test needs updating — M7 adds new code only.
+
+New spec: `tests/e2e/m7-report.spec.ts` (5 new tests).
+
+---
+
+**Test 64 — Min-sessions gate: dropdown, count display, button state**
+
+*Goal:* Report section shows a min-sessions dropdown and accumulated session count; Generate Report button is disabled when count < minimum; enabled when count ≥ minimum.
+
+Steps:
+1. Navigate to `/dashboard?token=dashboard-link`.
+2. Scroll to `[data-dashboard-section="report"]`.
+3. Assert `[data-report-min-sessions]` dropdown is present with options 100/200/500/1000.
+4. Assert `[data-report-session-count]` is present (shows a number).
+5. Assert `[data-dashboard-generate-report]` button is disabled when accumulated count < selected minimum.
+6. If needed, generate sim data so count ≥ 100, then assert button is enabled.
+
+Evidence: `test-results/M7 Test 64 - Min-sessions gate/Check evidence/`
+
+---
+
+**Test 65 — Report section position in dashboard**
+
+*Goal:* Dashboard sections appear in order Data → Heatmap → Report → Simulation.
+
+Steps:
+1. Navigate to `/dashboard?token=dashboard-link`.
+2. Assert sections appear in DOM order: `[data-dashboard-section="data"]`, `[data-dashboard-section="heatmap"]`, `[data-dashboard-section="report"]`, `[data-dashboard-section="simulation"]`.
+3. Assert `[data-dashboard-section="report"]` appears before `[data-dashboard-section="simulation"]` in the DOM.
+
+Evidence: `test-results/M7 Test 65 - Report section position/Check evidence/`
+
+---
+
+**Test 66 — Report API: auth gate + structured JSON response**
+
+*Goal:* `POST /api/checkout-heatmap/report` returns structured JSON when authenticated; 401 when not.
+
+Steps:
+1. `POST /api/checkout-heatmap/report` with no token → assert 401.
+2. `POST /api/checkout-heatmap/report` with valid `Authorization: Bearer dashboard-link` → assert 200.
+3. Assert response JSON contains top-level keys: `intro`, `executiveSummary`, `stepAnalysis`, `conclusions`.
+
+Evidence: `test-results/M7 Test 66 - Report API/Check evidence/`
+
+---
+
+**Test 67 — Report page renders all 4 sections**
+
+*Goal:* `/dashboard/report?token=dashboard-link` renders with all four section markers visible.
+
+Steps:
+1. Navigate to `/dashboard/report?token=dashboard-link`.
+2. Assert `[data-report-section="intro"]` visible.
+3. Assert `[data-report-section="executive-summary"]` visible.
+4. Assert `[data-report-section="step-analysis"]` visible.
+5. Assert `[data-report-section="conclusions"]` visible.
+
+Evidence: `test-results/M7 Test 67 - Report page sections/Check evidence/`
+
+---
+
+**Test 68 — Generate Report button note text**
+
+*Goal:* Note below button shows correct dynamic text with min and accumulated count.
+
+Steps:
+1. Navigate to `/dashboard?token=dashboard-link`.
+2. Scroll to Report section.
+3. Select min-sessions = 200.
+4. Assert `[data-report-gate-note]` text contains "200".
+5. Assert note text contains the accumulated session count number.
+
+Evidence: `test-results/M7 Test 68 - Gate note text/Check evidence/`
+
+---
+
+### Unit tests — M7.1 (`lib/prototype/captureWindowCheck.js`)
+
+*Scope: pure module extracted from `checkoutHeatmapClient.js`. Cover every boundary case for `from`/`to` date parsing. Exact test count determined at implementation; each rule gets ≥1 test. Rules to cover:*
+
+- `from` missing → window treated as open from epoch.
+- `to` missing → window treated as open until far future.
+- `to` parsed as local end-of-day (`T23:59:59.999`), not midnight UTC.
+- Current time before `from` → window closed.
+- Current time after `to` → window closed.
+- Current time within `[from, to]` → window open.
+- `from` = `to` (same day) → window open for that day only.
+- Invalid date strings → window treated as open (fail-open default).
+
+---
+
+### Unit tests — M7.2 (`lib/prototype/ingestConfigGates.js`)
+
+*Scope: pure module extracted from `app/api/checkout-heatmap/ingest/route.js`. Cover each of the four gates. Exact test count determined at implementation; each rule gets ≥1 test. Rules to cover:*
+
+**Step gate:**
+- Enabled step → passes.
+- Disabled step → blocked.
+- Unknown step → blocked.
+
+**Sampling gate:**
+- Rate 0% → always blocked.
+- Rate 100% → always passes.
+- Rate 50% → passes ~50% (probabilistic; test with seeded random or mock).
+
+**Capture-window gate:**
+- Window open → passes.
+- Window closed → blocked.
+- No window config → fail-open (passes).
+
+**Event-type filter:**
+- Enabled event type → passes.
+- Disabled event type → filtered out.
+- Unknown event type → filtered out.
+- Mixed batch → enabled types pass, disabled filtered.
+
+---
+
+### Unit tests — M7.3 (M1–M5 biz logic audit)
+
+*Scope: TBD — determined by audit in Part 3. Results documented here at implementation.*

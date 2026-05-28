@@ -50,3 +50,5 @@ Date,Time,Agent,Status,Summary
 2026-05-28,01:43,milestone-test-planning,OK,"M6.2 plan: no e2e changes; 38 unit tests across 4 files (checkoutHeatmap 22, sampling 6, configStore 5, dashboardAuth 5)."
 2026-05-28,01:56,milestone-prereqs,GAPS-OPEN,"M6.2: 6/9 MET. Gaps: milestone-doc-review not run (prereq 7), tech-debt scan stale (prereq 8), code/docs not committed (prereq 9)."
 2026-05-28,01:59,milestone-doc-review,GAPS-FIXED,"M6.2: checkoutHeatmap.test.ts count fixed 22→34 in TEST_CASES.md and ARCHITECTURE_OVERVIEW.md; total 54 unit tests confirmed correct; FUTURE_THIRD_PARTY_INTEGRATION.md unaffected (unit tests only)."
+2026-05-28,milestone-test-planning,OK,"M7 plan: keep 63, update 0, remove 0, +5 new e2e (Tests 64-68, m7-report.spec.ts); unit tests for M7.1 (captureWindowCheck), M7.2 (ingestConfigGates), M7.3 (TBD after audit)."
+2026-05-28,milestone-start,OK,"M7 READY: all 7 prereqs MET. M6.2 closed, scope frozen+specified (4-section report, Opus 4.7, 9-part plan), inherited+anticipated tech debt recorded, test plan documented."

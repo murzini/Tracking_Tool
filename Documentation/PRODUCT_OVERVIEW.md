@@ -163,6 +163,16 @@ Tech debt M6.1 is likely to introduce, identified upfront at milestone-start (20
 - **Sim data persists until manually discarded.** No auto-cleanup; stale sim data could confuse a future admin if Discard is forgotten. The confirmation pop-up is the only safeguard. (Test runs are wiped by `global-teardown`.)
 - **Simulation fixed to Personal Information only.** Extending to other steps requires generator changes. Acceptable for the POC.
 
+### Anticipated (M7) — identified at planning
+Tech debt M7 is likely to introduce, identified upfront at milestone-start (2026-05-28). Outcomes to be marked at M7 close.
+- **Heatmap screenshot capture approach TBD (critical if wrong choice).** Two options: Playwright server-side headless screenshots (~10–15s for 6 screenshots, already in project) vs client-side `canvas.toDataURL()` (~1–2s, requires client coordination). Decision in Part 5. If Playwright: must ensure the headless browser can authenticate and render the heatmap pages correctly server-side.
+- **Report generation timeout risk.** Vercel serverless functions have a 10s default timeout (60s max on Pro plan). Total generation time ~30–50s. The report API route (`/api/checkout-heatmap/report`) must set `export const maxDuration = 60` (Vercel Pro) or use a background/streaming approach. To be validated in Part 7.
+- **Anthropic API key management.** `ANTHROPIC_API_KEY` must be added to `.env.local` and Vercel environment variables before Part 7. Already excluded from git by `.gitignore` patterns. Operational prerequisite.
+- **Report not cached.** Each "Generate Report" click runs fresh SQL queries + a new Opus call (~$0.15). Acceptable for POC (infrequent, manual). Cache in M8 if needed.
+- **Draft design in hypotheses is text-only.** Opus 4.7 describes design changes in text; it does not produce visual designs. Section 4 contains text descriptions only. Accepted POC limitation.
+- **Schema-migration burden grows (carry-over from M6.1).** Any DB schema changes in M7 must target `public`, `heatmap_sim`, and `heatmap_test` schemas in `scripts/db-setup.mjs`.
+- **Suite runtime growth.** M7.3 biz-logic audit may add many new unit tests; revisit parallelism/sharding if total runtime becomes painful.
+
 ### Anticipated (M6.2) — identified at planning
 Tech debt M6.2 introduced by scoping unit tests only to already-pure modules; non-unit-testable logic was deferred. No critical items. Outcomes to be marked at M7.1/M7.2 close.
 - **Capture-window date check not unit-tested (deferred to M7.1).** The local-day boundary check lives inside `checkoutHeatmapClient.js`, a browser module that cannot be imported in Node/Vitest without globals. Extract to a pure helper module in M7.1, then add unit tests covering `from`/`to` boundary logic.
@@ -724,17 +734,124 @@ Introduce a **unit-test layer** (Vitest) to cover the **durable, pure-logic core
 **Next step:** run `milestone-test-planning` to produce the per-rule test checklist (each rule → its test), then implement part by part per the `AGENTS.md` workflow.
 
 ### M7 — AI Report Generation
+
+**STATUS: IN PLANNING. Scope frozen 2026-05-28.**
+
 Using all captured data within the scope and timeframe selected in the admin dashboard, generate an AI-powered report that aggregates visitor behavior, identifies friction points and drop-off patterns, produces a written summary, and outputs actionable recommendations and testable hypotheses for improving checkout conversion.
 
 **Pre-requisite before M7 begins:** push the branch to GitHub (all commits through M6.2 close). Clean milestone boundary = clean restore point.
 
-**How recommendations & hypotheses are produced:** the structured, aggregated findings (drop-off points, field friction, errors, attention) are fed to an LLM, which outputs prioritised recommendations and testable hypotheses ("if we change X, drop-off should fall"). A human reviews the output before acting on it.
+**How recommendations & hypotheses are produced:** the structured, aggregated findings (drop-off points, field friction, errors, attention) are fed to an LLM (Claude Opus 4.7), which outputs prioritised recommendations and testable hypotheses. A human reviews the output before acting on it.
+
+#### Decisions agreed (2026-05-28)
+
+- **AI model:** Claude Opus 4.7 (`claude-opus-4-7`). Single API call. ~$0.15/report at ~10k tokens.
+- **Output format:** structured JSON from Claude → rendered as React components on the report page.
+- **Report location:** dedicated `/dashboard/report?token=...` page (not inline on the dashboard).
+- **Generation UX:** progress bar while generating (~30–50s); full report shown on completion. No streaming.
+- **Data aggregation:** server-side SQL queries only — no LLM for aggregation.
+- **Heatmap screenshots:** real screenshots of actual data, captured at report generation time. Approach (Playwright vs client-side canvas) resolved in Part 5.
+- **Minimum sessions gate:** Generate Report button is disabled until accumulated sessions (filtered by current Data config timeframe) meet the admin-selected minimum.
+- **Dashboard Report section position:** moved after Heatmap, before Simulation (data flow order: configure → view heatmap → generate report → simulate).
+
+#### Report structure (frozen 2026-05-28)
+
+Four sections rendered on `/dashboard/report`:
+
+**Section 1 — Intro & Methodology**
+Goal of the report; how data is collected; which events are covered; which heatmaps are shown; screens explored; timeframe of the exercise. Reflects actual Data config (steps enabled, capture timeframe).
+
+**Section 2 — Executive Summary**
+- Total sessions started for the covered steps
+- Sessions closed by closing the tab/window (left-browser)
+- Sessions closed in other ways (nav-click, back button)
+- Sessions moved away for more than X hours
+- Sessions that eventually returned and completed the step
+- Per-step entry/exit totals (brief note)
+- 5 last actions right before triggering a drop-off event (champion events — event labels only)
+
+**Section 3 — Step Analysis**
+Repeated per step (Personal Info, Delivery, Pay). Same sub-structure for each step:
+
+*A. Heatmaps* (screenshots of real heatmap data)
+- Clicks heatmap analysis + screenshot
+- Scroll heatmap analysis + screenshot
+- Mouse-moves heatmap analysis + screenshot
+
+*B. Engagement*
+- Time-to-first-interaction
+- Active vs idle time
+- Element visibility (what visitors saw vs scrolled past)
+- Hesitation hotspots (mouse dwell without clicks)
+
+*C. Friction*
+- Field-level friction (abandonment rate, time, errors per field)
+- Validation error sequences (which errors appear before drop-off)
+- Rage clicks / dead clicks
+
+*D. Drop-off patterns*
+- Drop-off triggers (last X actions before abandonment)
+- Zero-click drop-off sessions
+- Session resume patterns (returned within 30s)
+- Returning visitors (visitorId-based)
+
+*E. Comparisons*
+- Completers vs drop-off sessions
+- Desktop vs Mobile (per sub-section above)
+
+**Visualisation rule:** every numerical claim has a visual. Spatial patterns = heatmap screenshot; distributions = bar/pie chart; sequences = timeline/step list; comparisons = side-by-side table or grouped bars; narrative = short paragraph beside each visual.
+
+**Section 4 — Conclusions**
+AI-generated hypotheses for improving conversion. Each hypothesis: problem statement + solution idea + draft design description (text). Format: prioritised list produced by Claude Opus 4.7.
+
+#### Dashboard changes (Report section — M7)
+
+- **Min sessions dropdown** — new in Report section: 100 / 200 / 500 / 1000. Admin sets the minimum before report can be generated.
+- **Accumulated sessions count** — displayed below the dropdown: number of sessions falling within the current Data config timeframe. Updates when Data config is saved.
+- **Generate Report button** — disabled until accumulated sessions ≥ selected minimum.
+- **Note below button** — "Report requires at least [N] sessions. Currently accumulated: [X]."
+- **Report section moved** — after Heatmap, before Simulation in the dashboard layout.
+
+#### M7 sequencing (parts)
+
+M7.1 → M7.2 → M7.3 → Part 4 (dashboard) → Part 5 (data aggregation) → Part 6 (screenshots) → Part 7 (AI integration) → Part 8 (report page) → Part 9 (close).
+
+- **Part 1 (M7.1):** Extract capture-window date-check to a pure module + unit tests.
+- **Part 2 (M7.2):** Extract ingest config gates to a pure module + unit tests.
+- **Part 3 (M7.3):** Audit M1–M5 business logic for unit-testable rules; extract where needed; write unit tests.
+- **Part 4:** Dashboard changes — min sessions dropdown, accumulated session count, Report section position, button enablement logic, note text.
+- **Part 5:** Data aggregation service — SQL queries per report section per step; finalise heatmap screenshot capture approach (Playwright vs `canvas.toDataURL()`).
+- **Part 6:** Heatmap screenshot capture implementation.
+- **Part 7:** Claude Opus 4.7 integration — report generation API route (`/api/checkout-heatmap/report`); structured prompt; parse response JSON.
+- **Part 8:** Report page — replace static mockup with real data + real screenshots + real Claude output; progress bar.
+- **Part 9:** Close gates (unit tests, e2e tests, doc review, agent review, tech debt review, commit).
 
 #### M7.1 — Capture-window check extraction + unit test (deferred from M6.2)
-*Addressed after the main M7 scope is delivered.* The capture-window date-boundary rule (the `to`-as-midnight-UTC bug — one of the two bugs that motivated M6.2) currently lives **inside** `checkoutHeatmapClient.js`, a browser module, so it cannot be unit-tested without browser globals. M6.2 covers the pure-logic core (`checkoutHeatmap.js`, `checkoutHeatmapSampling.js`, `heatmapConfigStore`, `dashboardAuth.js`) and **excludes** this rule. M7.1 extracts the capture-window check into its own pure module and adds the unit test, closing the gap M6.2 left open.
+The capture-window date-boundary rule (the `to`-as-midnight-UTC bug) currently lives **inside** `checkoutHeatmapClient.js`, a browser module. M7.1 extracts it into a pure module and adds unit tests covering `from`/`to` boundary logic, closing the gap M6.2 left open.
 
 #### M7.2 — Ingest config gate extraction + unit test (deferred from M6.2)
-*Addressed after the main M7 scope is delivered.* The four ingest config gates (step gate, sampling gate, capture-window gate, event-type filter) live inside `app/api/checkout-heatmap/ingest/route.js`, mixed with `NextResponse` and DB calls, so they cannot be unit-tested without extraction. M7.2 extracts the gate logic into a pure helper module and adds unit tests, closing the gap M6.2 left open.
+The four ingest config gates (step gate, sampling gate, capture-window gate, event-type filter) live inside `app/api/checkout-heatmap/ingest/route.js`, mixed with `NextResponse` and DB calls. M7.2 extracts the gate logic into a pure helper module and adds unit tests for each gate.
+
+#### M7.3 — M1–M5 business logic audit + unit tests
+Audit all business logic from M1–M5 for rules that are (a) durable and (b) testable in a pure Node environment. For each identified rule: extract to a pure module if needed, then write unit tests. Findings documented in `TEST_CASES.md` → M7.3.
+
+#### Test plan (M7 — produced by milestone-test-planning 2026-05-28)
+
+**E2E tests — keep as-is (63):** all existing tests. No changes driven by M7.1/M7.2/M7.3 (extraction only; covered behavior unchanged). M7 report pipeline is new code — no existing test needs updating.
+
+**E2E tests — new (5): Tests 64–68.** New spec: `tests/e2e/m7-report.spec.ts`.
+
+- **Test 64 — Min-sessions gate:** Report section shows min-sessions dropdown + accumulated count; Generate Report button is disabled when count < minimum; enabled when count ≥ minimum.
+- **Test 65 — Report section position:** Dashboard sections appear in order: Data → Heatmap → Report → Simulation. `[data-dashboard-section="report"]` appears before `[data-dashboard-section="simulation"]`.
+- **Test 66 — Report API returns structured JSON:** `POST /api/checkout-heatmap/report` (authed) returns a JSON object with keys for each section; unauthenticated request returns 401.
+- **Test 67 — Report page renders all 4 sections:** `/dashboard/report?token=...` shows section markers for all four sections (intro, executive-summary, step-analysis, conclusions).
+- **Test 68 — Generate Report button note text:** note below button shows correct dynamic text with current min and accumulated count values.
+
+**Unit tests — M7.1:** pure module `lib/prototype/captureWindowCheck.js` — cover every boundary case for `from`/`to` date parsing (today as local end-of-day, past date, future date, missing value, invalid value). Exact count determined at implementation.
+
+**Unit tests — M7.2:** pure module `lib/prototype/ingestConfigGates.js` — cover each of the four gates (step gate, sampling gate, capture-window gate, event-type filter) with enabled/disabled states and edge cases. Exact count determined at implementation.
+
+**Unit tests — M7.3:** TBD — depends on M1–M5 audit findings. Exact count documented in `TEST_CASES.md` → M7.3 after audit.
 
 ### M8 — Integration Readiness
 All necessary preparations for embedding the product into a real product (e.g. Autohero). This includes stable API contracts, documented integration seams, clean separation between sandbox-specific and reusable logic, and any authentication or configuration work needed for external deployment.
