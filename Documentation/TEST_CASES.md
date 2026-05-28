@@ -794,7 +794,40 @@ Evidence: `test-results/M7 Test 68 - Gate note text/Check evidence/`
 
 ### Unit tests — M7.3 (M1–M5 biz logic audit)
 
-*Scope: TBD — determined by audit in Part 3. Results documented here at implementation.*
+**STATUS: DONE (2026-05-28). 19 unit tests, all green. 113 unit tests total.**
+
+Audit of M1–M5 business logic. All major functions in `checkoutHeatmap.js` and `checkoutHeatmapSampling.js` were already tested. Two untested pure-logic clusters extracted into new modules:
+
+#### `lib/prototype/resumeRefMatch.js` — `isResumableRef` (10 tests, `tests/unit/resumeRefMatch.test.ts`)
+
+Extracted from `checkoutHeatmapResume.js#loadResumableSessionId`. The localStorage read (`readRef()`) is not injectable; the matching rules are. `loadResumableSessionId` now delegates to this pure function.
+
+Rules covered:
+- `null` ref → false.
+- ref with no `id` → false.
+- `step` mismatch → false.
+- `sku` string mismatch → false.
+- Both skus `null` → match.
+- `ref.sku` undefined treated as `null` → matches `null` arg.
+- `lastSeen` NaN → false.
+- Elapsed `> windowMs` → false (expired).
+- Elapsed exactly `=== windowMs` → true (boundary inclusive, uses `>`).
+- Elapsed `< windowMs` → true.
+
+#### `lib/prototype/exitReasonResolver.js` — `resolveExitReason` (9 tests, `tests/unit/exitReasonResolver.test.ts`)
+
+Extracted from `checkoutHeatmapClient.js` closure. The closure closed over mutable `sawBack` / `lastNavClick` state; injectable version accepts those as params. The closure is now a one-line adapter.
+
+Rules covered (priority order):
+- `sawBack` → `"back"`.
+- `sawBack` wins over a recent `navClick`.
+- `lastNavClickAt` within 800ms → `"nav-click"`.
+- `lastNavClickAt` exactly 800ms → `"nav-click"` (boundary inclusive, uses `<=`).
+- `lastNavClickAt` at 801ms → falls through.
+- `lastNavClickAt` null → skips nav-click path.
+- `unload` true, no signals → `"left-browser"`.
+- No signals, no unload → `null`.
+- Expired navClick + `unload` true → `"left-browser"`.
 
 ---
 

@@ -33,6 +33,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 - **M7 milestone-start READY (2026-05-28).** Scope frozen, 9-part plan, 7 anticipated tech-debt items, test plan logged. Committed `4954a4c`.
 - **M7.1 DONE (2026-05-28).** `isCaptureWindowOpen` extracted from `checkoutHeatmapClient.js` → new pure module `lib/prototype/captureWindowCheck.js`; injectable `now` param for testability. 16 unit tests at `tests/unit/captureWindowCheck.test.ts` covering all boundary cases. Committed `e98c248`. Closes M6.2 deferred item.
 - **M7.2 DONE (2026-05-28).** Four ingest config gates extracted from `app/api/checkout-heatmap/ingest/route.js` → new pure module `lib/prototype/ingestConfigGates.js` (`isStepGated`, `isSamplingGated`, `isCaptureWindowGated`, `filterEventsByType`). 24 unit tests at `tests/unit/ingestConfigGates.test.ts`. 94 unit tests total, all green. Committed `9ea5049`. Closes M6.2 deferred item.
+- **M7.3 DONE (2026-05-28).** Audit of M1–M5 business logic. Two pure-logic clusters extracted: `lib/prototype/resumeRefMatch.js` (`isResumableRef`, 10 tests) from `checkoutHeatmapResume.js`; `lib/prototype/exitReasonResolver.js` (`resolveExitReason`, 9 tests) from `checkoutHeatmapClient.js`. 113 unit tests total, all green.
 - **M7 scope frozen (key decisions):**
   - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
   - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
@@ -46,15 +47,15 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 **Verify state before starting each part** (takes 30 seconds, avoids acting on stale info):
 1. `git pull` — then `git log --oneline -3` to confirm you're on the latest commit.
-2. Confirm files exist: `lib/prototype/ingestConfigGates.js`, `tests/unit/ingestConfigGates.test.ts`.
-3. `npm install && npm run test:unit` — must print `94 passed` (or more if a prior part added tests).
+2. Confirm files exist: `lib/prototype/resumeRefMatch.js`, `lib/prototype/exitReasonResolver.js`.
+3. `npm install && npm run test:unit` — must print `113 passed` (or more if a prior part added tests).
 If the clone is missing, clone fresh from GitHub.
 
 ## Next action
 
-**Start M7 Part 3 (M7.3).** Audit M1–M5 business logic for unit-testable rules; extract where needed; write unit tests. See `TEST_CASES.md` → M7 → Unit tests — M7.3.
+**Start M7 Part 4 (dashboard changes).** Add Report section to dashboard (after Heatmap, before Simulation): min-sessions dropdown, accumulated count display, disabled Generate Report button. Extract gate logic to `lib/prototype/reportGateLogic.js`. See `TEST_CASES.md` → M7 → Unit tests — M7 new code (`reportGateLogic.js`, Part 4).
 
-**M7 sequence:** ~~M7.1~~ → ~~M7.2~~ → M7.3 → Part 4 (dashboard changes) → Part 5 (data aggregation + screenshot approach) → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
+**M7 sequence:** ~~M7.1~~ → ~~M7.2~~ → ~~M7.3~~ → Part 4 (dashboard changes) → Part 5 (data aggregation + screenshot approach) → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
 
 **Before Part 7:** add `ANTHROPIC_API_KEY` to `.env.local` and Vercel env vars (anticipated tech debt item).
 
