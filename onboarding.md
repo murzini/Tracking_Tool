@@ -10,7 +10,7 @@ A heatmap product on a Next.js sandbox (Shop). It records visitor behaviour on t
 
 **GitHub:** `https://github.com/murzini/Tracking_Tool` (main branch — source of truth)
 **Vercel:** `https://tracking-tool-kappa.vercel.app` (auto-deploys on push to main)
-**Workflow:** local repo is gone. Clone to `C:\Temp\Tracking_Tool` → edit → push → delete temp folder. Never leave temp clones behind. If a folder already exists at `C:\Temp`, delete it first and reclone — existing clones may be stale and `git status` will silently say "up to date" without a `git fetch`.
+**Workflow:** Clone once to `C:\Temp\Tracking_Tool` and keep it for the duration of M7. At the start of each part, run `git pull` to ensure the clone is current — do not rely on `git status` alone (it won't show remote changes without a fetch). Delete the folder only when M7 is fully closed. If the folder is missing, clone fresh from GitHub.
 
 ## Model selection
 
@@ -44,11 +44,11 @@ See `CLAUDE.md` → "Model selection" for the full rule.
   - **Design principle**: every part extracts pure logic to its own module; React/SQL/API stay thin wrappers.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
-**Verify state before starting work** (takes 30 seconds, avoids acting on stale info):
-1. `git fetch origin && git log --oneline -3` — top commit must be `9ea5049` (or newer if onboarding was refreshed after this session).
+**Verify state before starting each part** (takes 30 seconds, avoids acting on stale info):
+1. `git pull` — then `git log --oneline -3` to confirm you're on the latest commit.
 2. Confirm files exist: `lib/prototype/ingestConfigGates.js`, `tests/unit/ingestConfigGates.test.ts`.
-3. `npm install && npm run test:unit` — must print `94 passed`.
-If step 1 shows an older top commit, your clone is stale — delete it and reclone.
+3. `npm install && npm run test:unit` — must print `94 passed` (or more if a prior part added tests).
+If the clone is missing, clone fresh from GitHub.
 
 ## Next action
 
