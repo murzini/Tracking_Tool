@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CheckoutFlow } from "../../../../components/prototype/CheckoutFlow";
 import { ShopFrame, useCatalogItem } from "../../../../components/prototype/shopRuntime";
 import {
@@ -30,7 +30,15 @@ export default function CheckoutHeatmapPage() {
 function CheckoutHeatmapContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const sku = Array.isArray(params?.sku) ? params.sku[0] : params?.sku || "001";
+
+  const navigate = useCallback((key, value) => {
+    const p = new URLSearchParams(searchParams.toString());
+    p.set(key, value);
+    router.replace(`${pathname}?${p.toString()}`);
+  }, [searchParams, router, pathname]);
   const selectedView = readView(searchParams.get("view"));
   const selectedStep = resolveCheckoutHeatmapStep(searchParams.get("step"));
   // `type` switches the active overlay: clicks (default) / mouse moves / scrolls.
@@ -251,7 +259,33 @@ function CheckoutHeatmapContent() {
   }, [isMobileView, mobileViewportWidth]);
 
   const topBarRight = (
-    <div className="text-right">
+    <div className="flex items-center gap-3">
+      {/* View toggle */}
+      <div className="flex rounded-md overflow-hidden border border-slate-200 text-xs font-medium">
+        {["desktop_view", "mobile_view"].map((v) => (
+          <button
+            key={v}
+            onClick={() => navigate("view", v)}
+            className={`px-2 py-1 transition-colors ${selectedView === v ? "bg-slate-800 text-white" : "bg-white text-slate-500 hover:bg-slate-100"}`}
+          >
+            {v === "desktop_view" ? "Desktop" : "Mobile"}
+          </button>
+        ))}
+      </div>
+      {/* Type toggle */}
+      <div className="flex rounded-md overflow-hidden border border-slate-200 text-xs font-medium">
+        {["clicks", "moves", "scrolls"].map((t) => (
+          <button
+            key={t}
+            onClick={() => navigate("type", t)}
+            className={`px-2 py-1 capitalize transition-colors ${selectedType === t ? "bg-slate-800 text-white" : "bg-white text-slate-500 hover:bg-slate-100"}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      {/* Stats */}
+      <div className="text-right">
       <div className="text-sm font-semibold leading-none" data-heatmap-step-label>{STEP_LABELS[selectedStep]}</div>
       <div className="mt-0.5 text-xs text-slate-500" data-heatmap-stats>
         {selectedView} · <span data-heatmap-session-count>{viewSessions.length}</span> sessions · {layerCountLabel}
@@ -260,6 +294,7 @@ function CheckoutHeatmapContent() {
           : ""}
         {isMobileView ? ` · ${mobileViewportWidth}px viewport` : ""}
         {loading ? " · loading" : ""}
+      </div>
       </div>
     </div>
   );
