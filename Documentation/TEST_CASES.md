@@ -899,9 +899,41 @@ Extracted from `checkoutScanner.js` (were private functions). Used for anchor ID
 
 ---
 
-### Unit tests — M7 new code (`heatmapScreenshotHelpers.js`, Part 6 — if applicable)
+### Unit tests — M7 new code (`reportScreenshotConfig.js`, Part 6)
 
-*Scope: any pure math/coordinate/cropping helpers for screenshot capture. Actual capture I/O stays thin and is e2e-tested. Rules TBD at part-start once the capture approach (Playwright vs canvas) is finalised in Part 5.*
+**STATUS: DONE (2026-05-28). 28 unit tests, all green. 252 unit tests total.**
+
+*Module: `lib/prototype/reportScreenshotConfig.js`. Pure URL + viewport config builder. Actual Playwright capture I/O lives in `app/api/checkout-heatmap/screenshots/route.js` and is tested end-to-end via the full report flow (Parts 7–8).*
+
+**Constants:**
+- `SCREENSHOT_STEPS` contains exactly `['personal-info', 'delivery', 'pay']`.
+- `SCREENSHOT_TYPES` contains exactly `['clicks', 'moves', 'scrolls']`.
+- `SCREENSHOT_VIEWPORT.width` ≥ 1280 (above desktop breakpoint 1024px).
+- `SCREENSHOT_VIEWPORT.height` > 0.
+- `SCREENSHOT_SKU` is a non-empty string.
+
+**`buildHeatmapUrl` (13 tests):**
+- Returns URL starting with `baseUrl/checkout/<sku>/heatmap?`.
+- Includes `step=personal-info`, `step=delivery`, `step=pay` correctly.
+- Includes `type=clicks`, `type=moves`, `type=scrolls` correctly.
+- Defaults `view` to `desktop_view`.
+- Accepts a custom `view` param.
+- Defaults `source` to `real`.
+- Includes `source=sim` when specified.
+- Uses default SKU in the path.
+- Uses a custom SKU when provided.
+
+**`buildScreenshotRequests` (10 tests):**
+- Returns exactly 9 requests (3 steps × 3 types).
+- Covers every step at least once.
+- Covers every type at least once.
+- Each request has `step`, `type`, `url`, and `viewport` properties.
+- Each request's URL contains its own `step` and `type` params.
+- Viewport dimensions match `SCREENSHOT_VIEWPORT`.
+- Viewport object is a copy — mutating it does not change `SCREENSHOT_VIEWPORT`.
+- All 9 URLs are unique (no duplicates).
+- `source=sim` appears in all URLs when specified.
+- Custom `sku` appears in all URL paths.
 
 ---
 
