@@ -35,6 +35,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
   - M7.2: `ingestConfigGates.js` (4 gates, 24 tests).
   - M7.3: full M1–M5 audit — `resumeRefMatch.js` (`isResumableRef`, 10), `exitReasonResolver.js` (`resolveExitReason`, 9), `scannerUtils.js` (`slugify`+`safeAttrSelector`, 13). All other M1–M5 code is either already tested, DOM-dependent, `Math.random`-dependent, or a thin API wrapper with no extractable pure logic — audit is complete, not partial.
 - **M7 Part 4 DONE (2026-05-28). 148 unit tests total, all green. Latest commit `ed94dc8`.** Dashboard Report section rebuilt: min-sessions dropdown (100/200/500/1000), accumulated session count (fetched from query API on mount + after Save), Generate Report button disabled until gate met, dynamic note text. Report section moved before Simulation. Pure gate logic extracted to `lib/prototype/reportGateLogic.js` (`isReportGateMet`, `getGateNoteText`, `MIN_SESSIONS_OPTIONS`, `DEFAULT_MIN_SESSIONS`); 22 unit tests in `tests/unit/reportGateLogic.test.ts`. Committed and pushed — Vercel live.
+- **M7 Part 5 DONE (2026-05-28). 224 unit tests total, all green.** 19 pure aggregation transforms extracted to `lib/prototype/reportAggregationTransforms.js`; 76 unit tests in `tests/unit/reportAggregationTransforms.test.ts`. Screenshot capture approach decided: **Playwright** (already in project, server-side, no client coordination, 10-15s fits 30-50s budget, token passed in URL). Commit pending.
 - **M7 scope frozen (key decisions):**
   - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
   - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
@@ -42,21 +43,21 @@ See `CLAUDE.md` → "Model selection" for the full rule.
   - **Generation UX**: progress bar (~30-50s expected).
   - **Min-sessions gate**: new dropdown (100/200/500/1000) in Report section + live accumulated count; Generate Report button disabled until threshold met.
   - **Report section moved** in dashboard: after Heatmap, before Simulation.
-  - **Heatmap screenshots = real** (capture approach Playwright vs canvas — decided in Part 5).
+  - **Heatmap screenshots = real** — capture via **Playwright** (decided Part 5).
   - **Design principle**: every part extracts pure logic to its own module; React/SQL/API stay thin wrappers.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 **Verify state before starting each part** (takes 30 seconds, avoids acting on stale info):
-1. `git pull` — then `git log --oneline -3` to confirm you're on the latest commit (`ed94dc8`).
-2. Confirm files exist: `lib/prototype/reportGateLogic.js`, `tests/unit/reportGateLogic.test.ts`.
-3. `npm install && npm run test:unit` — must print `148 passed` (or more if a prior part added tests).
+1. `git pull` — then `git log --oneline -3` to confirm you're on the latest commit (see Part 5 commit below).
+2. Confirm files exist: `lib/prototype/reportAggregationTransforms.js`, `tests/unit/reportAggregationTransforms.test.ts`.
+3. `npm install && npm run test:unit` — must print `224 passed` (or more if a prior part added tests).
 If the clone is missing, clone fresh from GitHub.
 
 ## Next action
 
-**Start M7 Part 5 (data aggregation service).** Extract pure aggregation transforms to `lib/prototype/reportAggregationTransforms.js` — functions that take raw DB rows and return shaped data for each report section (funnel totals, drop-off rates, field stats, event sequences, comparisons, etc.). SQL queries fetch rows; transforms shape them. Also finalise the heatmap screenshot capture approach (Playwright vs `canvas.toDataURL()`). Unit tests in `tests/unit/reportAggregationTransforms.test.ts` run against mock row inputs — no DB. See `PRODUCT_OVERVIEW.md` → M7 → Part 5 and `TEST_CASES.md` → M7.
+**Start M7 Part 6 (heatmap screenshot capture).** Implement server-side Playwright screenshot capture for each of the 3 checkout steps. Each screenshot visits `/checkout/[step]?token=...` with viewport set, waits for heatmap overlay to render, captures to buffer. Output: `{ step, screenshotBase64 }[]`. Extract pure screenshot-request builder (URL + viewport config) to `lib/prototype/reportScreenshotConfig.js`; unit tests in `tests/unit/reportScreenshotConfig.test.ts`. The Playwright execution itself lives in an API route or server action (not unit-testable). See `PRODUCT_OVERVIEW.md` → M7 → Part 6 and `TEST_CASES.md` → M7.
 
-**M7 sequence:** ~~M7.1~~ → ~~M7.2~~ → ~~M7.3~~ → ~~Part 4~~ → Part 5 (data aggregation + screenshot approach) → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
+**M7 sequence:** ~~M7.1~~ → ~~M7.2~~ → ~~M7.3~~ → ~~Part 4~~ → ~~Part 5~~ → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
 
 **Before Part 7:** add `ANTHROPIC_API_KEY` to `.env.local` and Vercel env vars (anticipated tech debt item).
 
