@@ -939,6 +939,8 @@ Extracted from `checkoutScanner.js` (were private functions). Used for anchor ID
 
 ### Unit tests — M7 new code (`reportPromptBuilder.js`, Part 7)
 
+**STATUS: DONE (2026-05-28). 8 unit tests, all green. 260 unit tests total.**
+
 *Scope: pure function that takes aggregated data + returns the prompt string/structure for Claude Opus 4.7. Rules to cover:*
 
 - Prompt includes all four sections (intro, exec summary, step analysis, conclusions) as instructions.
@@ -952,6 +954,8 @@ Extracted from `checkoutScanner.js` (were private functions). Used for anchor ID
 ---
 
 ### Unit tests — M7 new code (`reportResponseParser.js`, Part 7)
+
+**STATUS: DONE (2026-05-28). 9 unit tests, all green. 269 unit tests total.**
 
 *Scope: pure function that takes raw Claude JSON response + validates/parses/normalises it. Rules to cover:*
 

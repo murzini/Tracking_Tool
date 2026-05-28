@@ -29,7 +29,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 ## Current state
 
 - **M1–M6.2 CLOSED and signed off.** GitHub + Vercel live (`tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`).
-- **M7 Parts 1–6 DONE (2026-05-28). 252 unit tests green. Latest commit `47849da`.** Each part extracted pure logic to its own `lib/prototype/` module with unit tests; React/SQL/API stay thin wrappers. Per-part detail (modules, test counts, decisions) lives in `TEST_CASES.md` → M7. Modules so far: `captureWindowCheck`, `ingestConfigGates`, `resumeRefMatch`, `exitReasonResolver`, `scannerUtils` (M7.1–7.3 audit), `reportGateLogic` (P4), `reportAggregationTransforms` (P5), `reportScreenshotConfig` (P6). Part 6 also added the Playwright screenshot route `app/api/checkout-heatmap/screenshots/route.js` (auth-gated POST, dynamic Playwright import, returns 9 screenshots = 3 steps × 3 types).
+- **M7 Parts 1–7 DONE (2026-05-28). 269 unit tests green. Latest commit `47849da`.** Each part extracted pure logic to its own `lib/prototype/` module with unit tests; React/SQL/API stay thin wrappers. Per-part detail (modules, test counts, decisions) lives in `TEST_CASES.md` → M7. Modules so far: `captureWindowCheck`, `ingestConfigGates`, `resumeRefMatch`, `exitReasonResolver`, `scannerUtils` (M7.1–7.3 audit), `reportGateLogic` (P4), `reportAggregationTransforms` (P5), `reportScreenshotConfig` (P6), `reportPromptBuilder` + `reportResponseParser` (P7). Part 6 added the Playwright screenshot route `app/api/checkout-heatmap/screenshots/route.js`. Part 7 added the report generation route `app/api/checkout-heatmap/report/route.js` (auth-gated POST, aggregates sessions, calls Claude Opus 4.7, returns 4-section JSON report). `@anthropic-ai/sdk` installed.
 - **M7 scope frozen (key decisions):**
   - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
   - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
@@ -43,17 +43,15 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 **Verify state before starting each part** (takes 30 seconds, avoids acting on stale info):
 1. `git pull` — then `git log --oneline -3` to confirm you're on the latest commit.
-2. Confirm files exist: `lib/prototype/reportScreenshotConfig.js`, `tests/unit/reportScreenshotConfig.test.ts`, `app/api/checkout-heatmap/screenshots/route.js`.
-3. `npm install && npm run test:unit` — must print `252 passed` (or more if a prior part added tests).
+2. Confirm files exist: `lib/prototype/reportPromptBuilder.js`, `lib/prototype/reportResponseParser.js`, `app/api/checkout-heatmap/report/route.js`.
+3. `npm install && npm run test:unit` — must print `269 passed` (or more if a prior part added tests).
 If the clone is missing, clone fresh from GitHub.
 
 ## Next action
 
-**Start M7 Part 7 (Claude Opus 4.7 integration).** Build the report generation API route (`/api/checkout-heatmap/report`). Extract `reportPromptBuilder.js` (takes aggregated data + returns prompt string for Claude) and `reportResponseParser.js` (takes raw Claude JSON + validates/normalises it); unit tests for both. The API route is a thin wrapper: run SQL aggregations, call screenshot API, call prompt builder, call Claude Opus 4.7, parse response, return structured JSON. Set `maxDuration = 60`. See `PRODUCT_OVERVIEW.md` → M7 → Part 7 and `TEST_CASES.md` → M7. **Before starting:** add `ANTHROPIC_API_KEY` to `.env.local` and Vercel env vars.
+**Start M7 Part 8 (real report page).** Build the `/dashboard/report` React page that calls the report API route and renders the 4-section JSON report. Progress bar UX (~30-50s expected). See `PRODUCT_OVERVIEW.md` → M7 → Part 8 and `TEST_CASES.md` → M7.
 
-**M7 sequence:** ~~M7.1~~ → ~~M7.2~~ → ~~M7.3~~ → ~~Part 4~~ → ~~Part 5~~ → ~~Part 6 (screenshots)~~ → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
-
-**Before Part 7:** add `ANTHROPIC_API_KEY` to `.env.local` and Vercel env vars (anticipated tech debt item).
+**M7 sequence:** ~~M7.1~~ → ~~M7.2~~ → ~~M7.3~~ → ~~Part 4~~ → ~~Part 5~~ → ~~Part 6 (screenshots)~~ → ~~Part 7 (Opus integration)~~ → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
 
 ## What to read first, in order
 

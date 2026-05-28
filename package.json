@@ -10,6 +10,7 @@
     "test:unit": "vitest run tests/unit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.0",
     "@neondatabase/serverless": "^1.1.0",
     "framer-motion": "11.3.8",
     "lucide-react": "0.469.0",
