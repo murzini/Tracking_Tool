@@ -30,9 +30,8 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 - **M1–M6.2 CLOSED and signed off.** M6.2 fully closed 2026-05-28, committed `b851547`. 54 Vitest unit tests across 4 pure-logic modules; 73 e2e tests; all green.
 - **GitHub + Vercel live.** `tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`.
-- **Simulator realism fixes DONE (2026-05-28).** Weighted click distribution (commit `7ed06df`) + mouse-moves spread across full viewport (commit `7d9b59f`) — both in `lib/prototype/checkoutHeatmapSimulator.js`.
-- **M7 report mockup DONE (2026-05-28).** Static `/dashboard/report` page with 12-section placeholder structure built and pushed (commit `7572f8c`); used to confirm format direction. User-validated; will be replaced with real data in Part 8. Dashboard "Generate Report" button now links to it.
-- **M7 milestone-start READY (2026-05-28).** All 7 prereqs MET. Scope frozen, 9-part implementation plan documented, anticipated tech debt recorded (7 items), test plan logged (5 new e2e tests 64-68 + unit tests for M7.1/M7.2/M7.3 + new M7 code). Committed `4954a4c`. Logged in `AGENT_RUN_LOG.csv`: `milestone-test-planning` OK + `milestone-start` OK.
+- **M7 milestone-start READY (2026-05-28).** Scope frozen, 9-part plan, 7 anticipated tech-debt items, test plan logged. Committed `4954a4c`.
+- **M7.1 DONE (2026-05-28).** `isCaptureWindowOpen` extracted from `checkoutHeatmapClient.js` → new pure module `lib/prototype/captureWindowCheck.js`; injectable `now` param for testability. 16 unit tests at `tests/unit/captureWindowCheck.test.ts` covering all boundary cases. 70 unit tests total, all green. Committed `e98c248`. Closes M6.2 deferred item.
 - **M7 scope frozen (key decisions):**
   - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
   - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
@@ -41,14 +40,14 @@ See `CLAUDE.md` → "Model selection" for the full rule.
   - **Min-sessions gate**: new dropdown (100/200/500/1000) in Report section + live accumulated count; Generate Report button disabled until threshold met.
   - **Report section moved** in dashboard: after Heatmap, before Simulation.
   - **Heatmap screenshots = real** (capture approach Playwright vs canvas — decided in Part 5).
-  - **Design principle**: every part extracts pure logic to its own module; React/SQL/API stay thin wrappers. Pure modules listed per part in `PRODUCT_OVERVIEW.md` → M7 sequencing.
+  - **Design principle**: every part extracts pure logic to its own module; React/SQL/API stay thin wrappers.
 - **Note (don't "fix"):** an `in-progress` session may show an `exit_reason` (e.g. `left-browser`) — INTENDED. See `DATA.md` → `exit_reason`.
 
 ## Next action
 
-**Start M7 Part 1 (M7.1).** Extract the capture-window date-check from `lib/prototype/checkoutHeatmapClient.js` into a new pure module `lib/prototype/captureWindowCheck.js`, then write unit tests at `tests/unit/captureWindowCheck.test.ts` covering every boundary case (see `TEST_CASES.md` → M7 → Unit tests — M7.1).
+**Start M7 Part 2 (M7.2).** Extract the four ingest config gates (step gate, sampling gate, capture-window gate, event-type filter) from `app/api/checkout-heatmap/ingest/route.js` into a new pure module `lib/prototype/ingestConfigGates.js`, then write unit tests at `tests/unit/ingestConfigGates.test.ts` covering each gate (see `TEST_CASES.md` → M7 → Unit tests — M7.2).
 
-**M7 sequence:** M7.1 → M7.2 → M7.3 → Part 4 (dashboard changes) → Part 5 (data aggregation + screenshot approach) → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
+**M7 sequence:** ~~M7.1~~ → M7.2 → M7.3 → Part 4 (dashboard changes) → Part 5 (data aggregation + screenshot approach) → Part 6 (screenshots) → Part 7 (Opus integration) → Part 8 (real report page) → Part 9 (close). Full plan in `PRODUCT_OVERVIEW.md` → M7 → "M7 sequencing (parts)".
 
 **Before Part 7:** add `ANTHROPIC_API_KEY` to `.env.local` and Vercel env vars (anticipated tech debt item).
 
