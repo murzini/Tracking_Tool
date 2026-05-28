@@ -28,12 +28,12 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 
 ## Current state
 
-- **M1–M6.2 CLOSED and signed off.** M6.2 fully closed 2026-05-28, committed `b851547`. 54 Vitest unit tests across 4 pure-logic modules; 73 e2e tests; all green.
-- **GitHub + Vercel live.** `tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`.
-- **M7 milestone-start READY (2026-05-28).** Scope frozen, 9-part plan, 7 anticipated tech-debt items, test plan logged. Committed `4954a4c`.
-- **M7.1 DONE (2026-05-28).** `isCaptureWindowOpen` extracted from `checkoutHeatmapClient.js` → new pure module `lib/prototype/captureWindowCheck.js`; injectable `now` param for testability. 16 unit tests at `tests/unit/captureWindowCheck.test.ts` covering all boundary cases. Committed `e98c248`. Closes M6.2 deferred item.
-- **M7.2 DONE (2026-05-28).** Four ingest config gates extracted from `app/api/checkout-heatmap/ingest/route.js` → new pure module `lib/prototype/ingestConfigGates.js` (`isStepGated`, `isSamplingGated`, `isCaptureWindowGated`, `filterEventsByType`). 24 unit tests at `tests/unit/ingestConfigGates.test.ts`. 94 unit tests total, all green. Committed `9ea5049`. Closes M6.2 deferred item.
-- **M7.3 DONE (2026-05-28).** Audit of M1–M5 business logic. Three pure-logic clusters extracted: `lib/prototype/resumeRefMatch.js` (`isResumableRef`, 10 tests); `lib/prototype/exitReasonResolver.js` (`resolveExitReason`, 9 tests); `lib/prototype/scannerUtils.js` (`slugify` + `safeAttrSelector`, 13 tests). 126 unit tests total, all green.
+- **M1–M6.2 CLOSED and signed off.** M6.2 closed 2026-05-28 (`b851547`): 54 unit tests + 73 e2e, all green. GitHub + Vercel live (`tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`).
+- **M7 milestone-start READY (2026-05-28).** Scope frozen, 9-part plan, 7 anticipated tech-debt items, test plan logged (`4954a4c`).
+- **M7.1–M7.3 DONE (2026-05-28). 126 unit tests total, all green. Latest commit `81baa1d`.** Each part extracted pure logic to its own module + unit tests (detail in `TEST_CASES.md` → M7):
+  - M7.1: `captureWindowCheck.js` (`isCaptureWindowOpen`, 16 tests).
+  - M7.2: `ingestConfigGates.js` (4 gates, 24 tests).
+  - M7.3: full M1–M5 audit — `resumeRefMatch.js` (`isResumableRef`, 10), `exitReasonResolver.js` (`resolveExitReason`, 9), `scannerUtils.js` (`slugify`+`safeAttrSelector`, 13). All other M1–M5 code is either already tested, DOM-dependent, `Math.random`-dependent, or a thin API wrapper with no extractable pure logic — audit is complete, not partial.
 - **M7 scope frozen (key decisions):**
   - **4-section report**: Intro & Methodology / Executive Summary / Step Analysis (per step, sub-sections A-E) / Conclusions (AI hypotheses).
   - **AI model**: Claude Opus 4.7 (`claude-opus-4-7`), single API call, structured JSON output → React components.
