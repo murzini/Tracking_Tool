@@ -91,3 +91,39 @@ Past M1–M5 are settled and recorded in the docs above — don't re-litigate th
 - If tests change, update `TEST_CASES.md` + the `PRODUCT_OVERVIEW.md` test summary. If architecture changes, update `ARCHITECTURE_OVERVIEW.md`.
 - Don't declare a milestone complete until `milestone-prereqs` returns READY.
 - At checkpoints, suggest a new session and offer to refresh this file.
+
+<!-- PERMANENT SECTION — do not remove or overwrite this section during session refreshes or onboarding rewrites -->
+## Co-working with Codex
+
+Codex must not change any code or documentation until approval is given.
+
+Before making any file change, Codex must first explain in simple words:
+- why the change is needed
+- which files will be changed
+- what the change will do
+- whether behavior, output, tests, or docs will change
+
+Codex must then wait for explicit approval before editing.
+
+Read-only work does not need approval:
+- reading files
+- investigating bugs
+- reviewing code
+- listing findings
+- explaining options
+
+If Codex is unsure whether something counts as a change, treat it as a change and ask first.
+
+Codex must clearly separate:
+- proposed change
+- implemented change
+- tested change
+
+Codex must never imply a change was tested unless the test was actually run.
+
+Codex must never imply a GitHub change was made directly if the work was only done locally.
+
+When multiple solution paths exist, Codex should recommend one, explain tradeoffs simply, and wait for approval before implementing.
+
+At clean checkpoints, Codex should say `New session point` and offer a short handoff summary.
+<!-- END PERMANENT SECTION -->
