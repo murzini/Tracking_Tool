@@ -48,6 +48,7 @@ function buildScreenshotOneUrl(req, accessKey) {
   params.set("viewport_width", String(req.viewport.width));
   params.set("viewport_height", String(req.viewport.height));
   params.set("device_scale_factor", "1");
+  params.set("full_page", "true");
   params.append("wait_until", "domcontentloaded");
   params.append("wait_until", "networkidle2");
   params.set("wait_for_selector", SCREENSHOT_WAIT_FOR_SELECTOR);

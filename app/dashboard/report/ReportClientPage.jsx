@@ -239,6 +239,31 @@ function CompletorsVsDropOffTable({ completorsVsDropOff }) {
   );
 }
 
+function ScreenshotModal({ src, onClose }) {
+  if (!src) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4"
+      onClick={onClose}
+    >
+      <div className="relative my-4" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow hover:bg-slate-100"
+        >
+          &times;
+        </button>
+        <img
+          src={`data:image/png;base64,${src}`}
+          alt="Full heatmap screenshot"
+          className="max-w-[90vw] rounded-lg shadow-xl"
+        />
+      </div>
+    </div>
+  );
+}
+
 // --- Main component ---
 
 export default function ReportClientPage({ token, source }) {
@@ -247,6 +272,7 @@ export default function ReportClientPage({ token, source }) {
   const [aggregatedData, setAggregatedData] = useState(null);
   const [screenshots, setScreenshots] = useState([]);
   const [screenshotsLoading, setScreenshotsLoading] = useState(false);
+  const [modalSrc, setModalSrc] = useState(null);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
   const startRef = useRef(null);
@@ -330,6 +356,7 @@ export default function ReportClientPage({ token, source }) {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <ScreenshotModal src={modalSrc} onClose={() => setModalSrc(null)} />
       {/* header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3C5A7D] text-white">
@@ -468,11 +495,18 @@ export default function ReportClientPage({ token, source }) {
                               <div key={type}>
                                 <p className="mb-1 text-xs font-medium text-slate-500">{label}</p>
                                 {shot && (
-                                  <img
-                                    src={`data:image/png;base64,${shot.screenshotBase64}`}
-                                    alt={`${label} heatmap — ${STEP_LABELS[stepData.step] ?? stepData.step}`}
-                                    className="mb-2 w-full rounded-lg border border-slate-100"
-                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setModalSrc(shot.screenshotBase64)}
+                                    className="mb-2 block w-full cursor-zoom-in rounded-lg border border-slate-100"
+                                    title="Click to view full screenshot"
+                                  >
+                                    <img
+                                      src={`data:image/png;base64,${shot.screenshotBase64}`}
+                                      alt={`${label} heatmap - ${STEP_LABELS[stepData.step] ?? stepData.step}`}
+                                      className="w-full max-h-80 rounded-lg bg-slate-50 object-contain object-top"
+                                    />
+                                  </button>
                                 )}
                                 <Prose text={analysis ?? ""} />
                               </div>

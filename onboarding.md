@@ -31,7 +31,7 @@ See `CLAUDE.md` → "Model selection" for the full rule.
 - **M1–M7 CLOSED and signed off.** GitHub + Vercel live (`tracking-tool-kappa.vercel.app`, auto-deploys on push to `main`). Commit `2dc0b3a` is the M7 restore point.
 - **Unit tests 273/273 green; E2e suite 80/80 green (confirmed 2026-05-30).**
 - **Report pipeline works end-to-end on Vercel Hobby** — text + charts render correctly. Tested with `source=demo` (22 frozen sessions). Report takes ~80s.
-- **Screenshots fixed (post-M7 hotfix, 2026-05-31)** — Playwright replaced with ScreenshotOne API (Edge runtime). Code committed, not yet pushed. Requires `SCREENSHOTONE_ACCESS_KEY` in Vercel env vars before screenshots will appear live.
+- **Screenshots fixed + improved (post-M7 hotfix, 2026-05-31)** — Playwright replaced with ScreenshotOne API (Edge runtime). `full_page=true` added so the entire scrollable page is captured. Report UI updated: each screenshot renders as a scaled preview; clicking opens a full-res modal. Code committed, not yet pushed. Requires `SCREENSHOTONE_ACCESS_KEY` in Vercel env vars before screenshots will appear live.
 
 ### Report pipeline architecture (post-M7 hotfix, 2026-05-30)
 
@@ -47,7 +47,8 @@ The report route was split into two to work around Vercel Hobby's 10s serverless
 - `app/api/checkout-heatmap/report/generate/route.js` — Claude call, Edge runtime (NEW)
 - `lib/prototype/dashboardAuth.edge.js` — Edge-safe auth (NEW)
 - `app/dashboard/report/ReportClientPage.jsx` — chains two requests sequentially
-- `app/api/checkout-heatmap/screenshots/route.js` — Playwright replaced with ScreenshotOne, Edge runtime (post-M7 hotfix 2026-05-31)
+- `app/api/checkout-heatmap/screenshots/route.js` — Playwright replaced with ScreenshotOne, Edge runtime; `full_page=true` added (post-M7 hotfix 2026-05-31)
+- `app/dashboard/report/ReportClientPage.jsx` — scaled screenshot preview + `ScreenshotModal` click-to-zoom (post-M7 hotfix 2026-05-31)
 
 ### Unchanged context
 - **`.env.local`** holds `ANTHROPIC_API_KEY`, Neon `DATABASE_URL`, `DASHBOARD_TOKEN=dashboard-link` (local only — never commit).
