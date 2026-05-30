@@ -285,26 +285,36 @@ export default function ReportClientPage({ token, source }) {
       setProgress(Math.min(90, Math.round(90 * (1 - Math.exp(-elapsed / 20)))));
     }, 500);
 
-    const apiUrl = source
-      ? `/api/checkout-heatmap/report?source=${encodeURIComponent(source)}`
-      : "/api/checkout-heatmap/report";
+    const qs = source ? `?source=${encodeURIComponent(source)}` : "";
+    const dataUrl = `/api/checkout-heatmap/report${qs}`;
+    const generateUrl = `/api/checkout-heatmap/report/generate${qs}`;
 
-    fetch(apiUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => {
-        if (!res.ok)
-          return res.json().then((d) => {
-            throw new Error(d.error ?? "Report generation failed");
-          });
-        return res.json();
-      })
+    // Step 1 — aggregation (fast, Node). Step 2 — Claude narrative (Edge, streaming).
+    // Splitting the slow Claude call into its own Edge request keeps each step
+    // under Vercel Hobby's per-request limits.
+    fetch(dataUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
       .then((data) => {
-        if (!data.ok) throw new Error(data.error ?? "Report generation failed");
-        clearInterval(timerRef.current);
-        setProgress(100);
-        setReport(data.report);
+        if (!data.ok) throw new Error(data.error ?? "Report data fetch failed");
         setAggregatedData(data.aggregatedData ?? null);
-        setStatus("ready");
-        fetchScreenshots(data.stepsWithData ?? []);
+        const stepsWithData = data.stepsWithData ?? [];
+        return fetch(generateUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ aggregatedData: data.aggregatedData }),
+        })
+          .then((res) => res.json())
+          .then((gen) => {
+            if (!gen.ok) throw new Error(gen.error ?? "Report generation failed");
+            clearInterval(timerRef.current);
+            setProgress(100);
+            setReport(gen.report);
+            setStatus("ready");
+            fetchScreenshots(stepsWithData);
+          });
       })
       .catch((e) => {
         clearInterval(timerRef.current);
