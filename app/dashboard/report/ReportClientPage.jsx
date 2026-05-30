@@ -298,6 +298,7 @@ export default function ReportClientPage({ token, source }) {
         return res.json();
       })
       .then((data) => {
+        if (!data.ok) throw new Error(data.error ?? "Report generation failed");
         clearInterval(timerRef.current);
         setProgress(100);
         setReport(data.report);
