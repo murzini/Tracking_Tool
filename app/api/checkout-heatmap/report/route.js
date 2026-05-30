@@ -68,81 +68,85 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  // --- 1. Config ---
-  const config = await getHeatmapConfig();
+  try {
+    // --- 1. Config ---
+    const config = await getHeatmapConfig();
 
-  // --- 2. Read sessions + build DB-row format for transforms ---
-  const { searchParams } = new URL(request.url);
-  const schema = resolveHeatmapSchema(searchParams.get("source") ?? undefined);
-  const sessions = await readCheckoutHeatmapSessions({ schema });
-  const dbSessions = sessions.map(toDbRow);
-  const dbEvents = sessions.flatMap(s =>
-    (s.events || []).map(e => toDbEvent(e, s.id))
-  );
-
-  // --- 3. Run aggregation transforms ---
-  const aggregatedData = {
-    totalSessions: getTotalSessionCount(dbSessions),
-    sessionsByExitReason: getSessionsByExitReason(dbSessions),
-    returnedAndCompleted: getReturnedAndCompletedCount(dbSessions),
-    perStepTotals: getPerStepEntryExitTotals(dbSessions),
-    lastActionsBeforeDropOff: getLastActionsBeforeDropOff(dbSessions, dbEvents),
-    stepAnalysis: {},
-  };
-
-  for (const step of ["personal-info", "delivery", "pay"]) {
-    const stepSessions = dbSessions.filter(s => s.step === step);
-    if (stepSessions.length === 0) continue;
-    const stepEvents = dbEvents.filter(e =>
-      stepSessions.some(s => s.id === e.session_id)
+    // --- 2. Read sessions + build DB-row format for transforms ---
+    const { searchParams } = new URL(request.url);
+    const schema = resolveHeatmapSchema(searchParams.get("source") ?? undefined);
+    const sessions = await readCheckoutHeatmapSessions({ schema });
+    const dbSessions = sessions.map(toDbRow);
+    const dbEvents = sessions.flatMap(s =>
+      (s.events || []).map(e => toDbEvent(e, s.id))
     );
-    aggregatedData.stepAnalysis[step] = {
-      totalSessions: stepSessions.length,
-      activeIdleSplit: getActiveIdleTimeSplit(stepSessions),
-      elementVisibility: getElementVisibilityDurations(stepEvents).slice(0, 15),
-      hesitationHotspots: getHesitationHotspots(stepEvents).slice(0, 10),
-      fieldAbandonmentRates: getFieldAbandonmentRates(stepSessions, stepEvents).slice(0, 15),
-      validationErrorSequences: getValidationErrorSequences(stepSessions, stepEvents).slice(0, 10),
-      rageClicks: getRageClickSessions(stepEvents).slice(0, 10),
-      deadClicks: getDeadClicks(stepEvents).slice(0, 10),
-      dropOffTriggers: getDropOffTriggers(stepSessions, stepEvents),
-      zeroClickDropOffs: getZeroClickDropOffCount(stepSessions, stepEvents),
-      sessionResumes: getSessionResumeCount(stepSessions, stepEvents),
-      returningVisitors: getReturningVisitorsStats(stepSessions),
-      completorsVsDropOff: getCompletorsVsDropOffComparison(stepSessions),
-      desktopVsMobile: getDesktopVsMobileComparison(stepSessions),
+
+    // --- 3. Run aggregation transforms ---
+    const aggregatedData = {
+      totalSessions: getTotalSessionCount(dbSessions),
+      sessionsByExitReason: getSessionsByExitReason(dbSessions),
+      returnedAndCompleted: getReturnedAndCompletedCount(dbSessions),
+      perStepTotals: getPerStepEntryExitTotals(dbSessions),
+      lastActionsBeforeDropOff: getLastActionsBeforeDropOff(dbSessions, dbEvents),
+      stepAnalysis: {},
     };
-  }
 
-  // --- 4. Call Claude (screenshots moved to client for async loading) ---
-  const { system, userMessage } = buildReportPrompt({ aggregatedData, config });
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    for (const step of ["personal-info", "delivery", "pay"]) {
+      const stepSessions = dbSessions.filter(s => s.step === step);
+      if (stepSessions.length === 0) continue;
+      const stepEvents = dbEvents.filter(e =>
+        stepSessions.some(s => s.id === e.session_id)
+      );
+      aggregatedData.stepAnalysis[step] = {
+        totalSessions: stepSessions.length,
+        activeIdleSplit: getActiveIdleTimeSplit(stepSessions),
+        elementVisibility: getElementVisibilityDurations(stepEvents).slice(0, 15),
+        hesitationHotspots: getHesitationHotspots(stepEvents).slice(0, 10),
+        fieldAbandonmentRates: getFieldAbandonmentRates(stepSessions, stepEvents).slice(0, 15),
+        validationErrorSequences: getValidationErrorSequences(stepSessions, stepEvents).slice(0, 10),
+        rageClicks: getRageClickSessions(stepEvents).slice(0, 10),
+        deadClicks: getDeadClicks(stepEvents).slice(0, 10),
+        dropOffTriggers: getDropOffTriggers(stepSessions, stepEvents),
+        zeroClickDropOffs: getZeroClickDropOffCount(stepSessions, stepEvents),
+        sessionResumes: getSessionResumeCount(stepSessions, stepEvents),
+        returningVisitors: getReturningVisitorsStats(stepSessions),
+        completorsVsDropOff: getCompletorsVsDropOffComparison(stepSessions),
+        desktopVsMobile: getDesktopVsMobileComparison(stepSessions),
+      };
+    }
 
-  // Sonnet for cost + speed; switch to claude-opus-4-7 post-integration with Autohero
-  let message;
-  try {
-    message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system,
-      messages: [{ role: "user", content: userMessage }],
-    });
-  } catch {
-    return NextResponse.json({ ok: false, error: "Claude API call failed" }, { status: 500 });
-  }
-  const rawText = message.content[0]?.text ?? "";
+    // --- 4. Call Claude (screenshots moved to client for async loading) ---
+    const { system, userMessage } = buildReportPrompt({ aggregatedData, config });
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  // --- 5. Parse and validate response ---
-  // Strip markdown code fences Claude sometimes wraps around JSON
-  const cleanedText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  let report;
-  try {
-    report = parseReportResponse(cleanedText);
+    // Sonnet for cost + speed; switch to claude-opus-4-7 post-integration with Autohero
+    let message;
+    try {
+      message = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system,
+        messages: [{ role: "user", content: userMessage }],
+      });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: `Claude API call failed: ${e.message}` }, { status: 500 });
+    }
+    const rawText = message.content[0]?.text ?? "";
+
+    // --- 5. Parse and validate response ---
+    // Strip markdown code fences Claude sometimes wraps around JSON
+    const cleanedText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    let report;
+    try {
+      report = parseReportResponse(cleanedText);
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: e.message ?? "Failed to parse report response" }, { status: 500 });
+    }
+
+    const stepsWithData = Object.keys(aggregatedData.stepAnalysis);
+
+    return NextResponse.json({ ok: true, report, aggregatedData, stepsWithData });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e.message ?? "Failed to parse report response" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e.message ?? "Internal server error" }, { status: 500 });
   }
-
-  const stepsWithData = Object.keys(aggregatedData.stepAnalysis);
-
-  return NextResponse.json({ ok: true, report, aggregatedData, stepsWithData });
 }
