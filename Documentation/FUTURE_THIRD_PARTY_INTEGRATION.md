@@ -202,7 +202,7 @@ M5 introduces a login step that creates visitor identity. Integration-facing cha
 
 ### Visitor identity and attribution
 
-- **Visitor ID:** at login completion, a unique visitor ID is generated. This is NOT derived from the entered login name (cosmetic only in the POC). The visitor ID is the stable attribution key. A new ID is minted at every login completion — no reuse of a prior stored value.
+- **Visitor ID:** at login completion, a unique visitor ID is generated. This is NOT derived from the entered login name (cosmetic only in the POC). The visitor ID is the stable attribution key. A new ID is minted at every login completion — no reuse of a prior stored value. **Planned fix (M8):** check localStorage on login completion and reuse the existing ID if present; only mint a new one for a genuinely first-time visitor. Once stable, `visitor_id` will also be exposed via the query API (currently stored in DB but not returned) so all sessions from one visitor can be aggregated by a single DB query.
 - **Session attribution:** all sessions from login onwards (personal-info, delivery, pay) are tagged with the visitor ID. This enables per-visitor analysis, cross-session attribution, and filtering in reporting (M7) and the admin dashboard (M6).
 - **POC storage:** the visitor ID is stored in localStorage. This survives tab close, which is required so resume-within-X retains attribution when the visitor briefly leaves and returns on the same device.
 - **localStorage is a POC stand-in only:** localStorage is per-device and per-browser — it cannot follow a visitor from desktop to mobile. In the real product (Autohero), visitor identity is resolved server-side from the authenticated account, making it cross-device. The POC design keeps the source of the visitor ID swappable: POC mints it locally; the real product injects the server-resolved identity. The downstream plumbing (tagging sessions with the ID) is identical in both cases.
@@ -268,6 +268,16 @@ M6.1 added a heatmap simulation mode. Integration-facing changes are minimal —
 ### Schema isolation (M6.1)
 
 The sim data lives in its own Postgres schema (`heatmap_sim` live / `heatmap_test_sim` under the test runner) — a parallel of the `heatmap_test` isolation pattern already in place. An integration partner does not need to interact with or be aware of the sim schema; it has no effect on real capture, ingest, or query paths.
+
+## M7 integration-ready state
+
+M7 added AI-powered report generation. Integration-facing notes:
+
+- **Report API:** `POST /api/checkout-heatmap/report` — auth-gated, aggregates session data, calls Claude, returns a 4-section structured JSON report (`intro`, `executiveSummary`, `stepAnalysis`, `conclusions`). Accepts `?source=sim` to generate against simulation data, or `?source=demo` to generate against the frozen demo dataset (`heatmap_demo` schema). Default (no param or `source=real`) generates from live captured data.
+- **AI model (current):** `claude-sonnet-4-6` — used for cost and speed in POC. **On integration into Autohero, switch to `claude-opus-4-7`** for highest-quality analysis.
+- **Screenshots:** captured separately via `POST /api/checkout-heatmap/screenshots` (Playwright, auth-gated) and returned alongside the report JSON. Not sent to Claude — displayed as visual illustrations only.
+- **Cost note:** report generation calls the Anthropic API per request. Caching (if data has not changed) is a planned optimisation before production use.
+- Status: provisional POC admin contract — not part of the visitor capture pipeline.
 
 ## Milestone maintenance rule
 

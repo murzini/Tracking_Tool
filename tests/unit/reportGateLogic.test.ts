@@ -101,8 +101,8 @@ describe('getGateNoteText', () => {
 })
 
 describe('MIN_SESSIONS_OPTIONS', () => {
-  it('contains exactly [100, 200, 500, 1000]', () => {
-    expect(MIN_SESSIONS_OPTIONS).toEqual([100, 200, 500, 1000])
+  it('contains exactly [20, 100, 200, 500, 1000]', () => {
+    expect(MIN_SESSIONS_OPTIONS).toEqual([20, 100, 200, 500, 1000])
   })
 })
 
@@ -111,7 +111,7 @@ describe('DEFAULT_MIN_SESSIONS', () => {
     expect(DEFAULT_MIN_SESSIONS).toBe(100)
   })
 
-  it('is the first element of MIN_SESSIONS_OPTIONS', () => {
-    expect(DEFAULT_MIN_SESSIONS).toBe(MIN_SESSIONS_OPTIONS[0])
+  it('is included in MIN_SESSIONS_OPTIONS', () => {
+    expect(MIN_SESSIONS_OPTIONS).toContain(DEFAULT_MIN_SESSIONS)
   })
 })

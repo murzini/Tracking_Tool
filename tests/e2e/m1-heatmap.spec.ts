@@ -139,7 +139,7 @@ test("[desktop] dashboard heatmap open button opens the selected step in a new t
   const EVIDENCE = "test-results/M2 - Heatmap step dropdown/Check evidence";
   ensureDir(EVIDENCE);
 
-  await page.goto("/dashboard?token=m6-dev-token");
+  await page.goto("/dashboard?token=dashboard-link");
   await page.waitForLoadState("networkidle");
 
   // Select "Choose Delivery" in the Heatmap section step dropdown.
@@ -185,7 +185,7 @@ test("[desktop] clear data via dashboard removes all stored sessions", async ({ 
   await page.screenshot({ path: `${EVIDENCE}/before-clear.png` });
 
   // Use the dashboard Clear-data confirmation flow.
-  await page.goto("/dashboard?token=m6-dev-token");
+  await page.goto("/dashboard?token=dashboard-link");
   await page.waitForLoadState("networkidle");
   await page.locator("[data-dashboard-clear-data]").click();
   await expect(page.locator("[data-dashboard-confirm-overlay]")).toBeVisible();

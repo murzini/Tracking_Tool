@@ -45,9 +45,14 @@ The mapping below is a guide for the common files; treat `Documentation/TEST_CAS
 - `lib/prototype/checkoutVisitorId.js` — affects Tests 45–48 (`mintVisitorId` / `getVisitorId` / `isLoginDone`; visitor_id minted on login completion; localStorage gate; visitor_id carried on all subsequent sessions)
 - `components/prototype/TopBar.jsx` — affects Tests 2, 3, 11 (`rightContent` / `note` slot rendering, `nav:header` anchor; note: the `showM1Actions` block — Clear-data button and Heatmap step dropdown — was removed in M6 P6; Tests 2 and 3 now use the dashboard path)
 - `components/prototype/shopRuntime.js` — affects Tests 4, 5, 17, 54, 55, 56 (ShopFrame, mobile width, chatbot fixed icon; `topBarRight`/`topBarNote` slots underlie viewer stats rendering validated by Tests 54–56)
-- `app/dashboard/DashboardClient.jsx` — affects Tests 54, 63 (Test 54: four dashboard sections present — Data/Heatmap/Simulation/Report; Test 63: Simulation section UI — generate/view/discard buttons + status badge)
+- `app/dashboard/DashboardClient.jsx` — affects Tests 54, 63, 64, 65, 67, 68, 69 (Test 54: four dashboard sections; Test 63: Simulation section UI; Tests 64/68: Report section min-sessions gate + note text; Test 65: section order; Test 67: min-sessions localStorage persist; Test 69: heatmap filter localStorage persist)
 - `lib/ui/breakpoints.js` — affects Tests 5, 31 (desktop breakpoint changes view classification; movement capture differs by view — desktop records mouse-move, mobile records finger-move since Part 7)
 - `tests/global-teardown.ts` — affects Tests 57–63 (teardown now also TRUNCATEs `heatmap_test_sim`; if teardown is broken, sim-schema state bleeds between suites)
+- `lib/prototype/reportGateLogic.js` — affects Tests 64, 68 (min-sessions gate state + note text used by the Report section in `DashboardClient.jsx`; covered by unit tests + e2e Tests 64/68)
+- `app/api/checkout-heatmap/report/route.js` — affects Test 66 (auth gate — unauthenticated POST must return 401; report generation itself is accepted test debt, not automated)
+- `app/api/checkout-heatmap/screenshots/route.js` — no direct e2e test (screenshot capture is accepted test debt; covered by the full report flow manually)
+- `app/dashboard/report/ReportClientPage.jsx` — no direct e2e test (report render not automated; covered manually)
+- `lib/prototype/reportAggregationTransforms.js` / `reportPromptBuilder.js` / `reportResponseParser.js` / `reportScreenshotConfig.js` — unit tests only; no e2e impact
 
 ## How to respond
 

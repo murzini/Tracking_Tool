@@ -1,9 +1,10 @@
-import { Backpack } from "lucide-react";
+﻿import { Backpack } from "lucide-react";
 import { isAuthorizedToken } from "@/lib/prototype/dashboardAuth";
-import { getHeatmapConfig } from "@/lib/prototype/heatmapConfigStore.server";
+import { getHeatmapConfigFresh } from "@/lib/prototype/heatmapConfigStore.server";
 import { DashboardClient } from "./DashboardClient";
 
-export const metadata = { title: "Admin Dashboard — AdventureBag" };
+export const metadata = { title: "Admin Dashboard - AdventureBag" };
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage({ searchParams }) {
   const token = searchParams?.token ?? "";
@@ -12,7 +13,7 @@ export default async function DashboardPage({ searchParams }) {
     return <DashboardBlocked />;
   }
 
-  const config = await getHeatmapConfig();
+  const config = await getHeatmapConfigFresh();
   return <DashboardClient token={token} initialConfig={config} />;
 }
 

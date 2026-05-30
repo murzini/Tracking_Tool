@@ -30,7 +30,8 @@ npm run dev
 - `DATABASE_URL` — Neon (Postgres) pooled connection string for the heatmap store. Required for capture, the heatmap viewer, and the query/cleanup APIs. Lives in `.env.local` (gitignored); see `.env.example` for the format. Never commit the real value.
 - `HEATMAP_DB_SCHEMA` — Postgres schema the store reads/writes (default `public`). The isolated test runner sets it to `heatmap_test` so the suite never touches production data.
 - `NEXT_PUBLIC_HEATMAP_SAMPLING_RATE` — per-session capture sampling rate, `0`–`1` (default `1` = 100%). Now a seed/fallback only — runtime config (dashboard) takes precedence; a `heatmapSampleRate` query param overrides for tests and manual checks. Sampling is applied per session (one step visit); 0%/100% are deterministic.
-- `DASHBOARD_TOKEN` — shared secret that gates the admin dashboard and auth-gated API routes (`POST /api/checkout-heatmap/config`, `DELETE /api/checkout-heatmap`). Set to any non-empty string; pass it as the `token=` query param when opening `/dashboard`. Lives in `.env.local` (gitignored). Never commit the real value.
+- `DASHBOARD_TOKEN` — shared secret that gates the admin dashboard and auth-gated API routes (`POST /api/checkout-heatmap/config`, `DELETE /api/checkout-heatmap`, `POST /api/checkout-heatmap/report`, `POST /api/checkout-heatmap/screenshots`). Set to any non-empty string; pass it as the `token=` query param when opening `/dashboard`. Lives in `.env.local` (gitignored). Never commit the real value.
+- `ANTHROPIC_API_KEY` — Anthropic API key required for report generation (`POST /api/checkout-heatmap/report`). Lives in `.env.local` (gitignored). Never commit the real value.
 
 ## Config API behavior
 - `GET /api/landing-config`
@@ -63,6 +64,8 @@ All three checkout steps (`personal-info`, `delivery`, `pay`) record visitor beh
 - `GET /api/checkout-heatmap/simulate` — count of simulated sessions in the sim schema (no auth required)
 - `POST /api/checkout-heatmap/simulate` — generate ~1500 synthetic sessions into the sim schema (auth-gated)
 - `DELETE /api/checkout-heatmap/simulate` — discard all simulated sessions (auth-gated)
+- `POST /api/checkout-heatmap/report` — generate AI report from captured sessions (auth-gated; calls Claude Sonnet; `?source=real|sim|demo` selects which schema to read; returns 4-section JSON report + aggregated data)
+- `POST /api/checkout-heatmap/screenshots` — capture heatmap screenshots via headless Playwright (auth-gated; body `{ source?, sku?, steps? }`; returns base64 screenshots for the report page)
 - `GET /api/db-status` — DB connectivity / schema inspection
 
 ## Running tests

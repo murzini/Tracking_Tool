@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Backpack, Check, ChevronDown, ExternalLink, Monitor, Save, Smartphone, Trash2 } from "lucide-react";
+import { Backpack, Check, ChevronDown, ExternalLink, Info, Monitor, Save, Smartphone, Trash2 } from "lucide-react";
 import {
   isReportGateMet,
   getGateNoteText,
@@ -85,9 +85,9 @@ function nearestDropoffPreset(ms) {
 }
 
 const CAPTURE_PRESETS = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "Last week" },
-  { value: "month", label: "Last month" },
+  { value: "today", label: "Today only" },
+  { value: "next7", label: "Next 7 days" },
+  { value: "next30", label: "Next 30 days" },
   { value: "custom", label: "Custom" },
 ];
 
@@ -100,39 +100,93 @@ function toDateStr(d) {
 
 function presetRange(mode) {
   const now = new Date();
-  const to = toDateStr(now);
-  if (mode === "today") return { from: to, to };
-  if (mode === "week") {
-    const f = new Date(now);
-    f.setDate(f.getDate() - 7);
-    return { from: toDateStr(f), to };
+  const from = toDateStr(now);
+  if (mode === "today") return { from, to: from };
+  if (mode === "next7") {
+    const t = new Date(now);
+    t.setDate(t.getDate() + 7);
+    return { from, to: toDateStr(t) };
   }
-  if (mode === "month") {
-    const f = new Date(now);
-    f.setMonth(f.getMonth() - 1);
-    return { from: toDateStr(f), to };
+  if (mode === "next30") {
+    const t = new Date(now);
+    t.setDate(t.getDate() + 30);
+    return { from, to: toDateStr(t) };
   }
   return null; // custom
 }
 
 function deriveCaptureMode(cw) {
   if (!cw || (!cw.from && !cw.to)) return "custom";
-  for (const mode of ["today", "week", "month"]) {
+  for (const mode of ["today", "next7", "next30"]) {
     const r = presetRange(mode);
     if (r && r.from === cw.from && r.to === cw.to) return mode;
   }
   return "custom";
 }
 
+// The Heatmap views stored data, so its timeframe presets are past/present only
+// (the Data section above is future-facing, since it gates new recording).
+const HEATMAP_PRESETS = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "this-week", label: "This week" },
+  { value: "last-week", label: "Last week" },
+  { value: "last-month", label: "Last month" },
+  { value: "custom", label: "Custom" },
+];
+
+function heatmapPresetRange(mode) {
+  const now = new Date();
+  const today = toDateStr(now);
+  if (mode === "today") return { from: today, to: today };
+  if (mode === "yesterday") {
+    const y = new Date(now);
+    y.setDate(y.getDate() - 1);
+    const s = toDateStr(y);
+    return { from: s, to: s };
+  }
+  // Monday-based weeks: days since Monday = (getDay() + 6) % 7
+  if (mode === "this-week") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return { from: toDateStr(d), to: today };
+  }
+  if (mode === "last-week") {
+    const thisMon = new Date(now);
+    thisMon.setDate(thisMon.getDate() - ((thisMon.getDay() + 6) % 7));
+    const lastMon = new Date(thisMon);
+    lastMon.setDate(thisMon.getDate() - 7);
+    const lastSun = new Date(thisMon);
+    lastSun.setDate(thisMon.getDate() - 1);
+    return { from: toDateStr(lastMon), to: toDateStr(lastSun) };
+  }
+  if (mode === "last-month") {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { from: toDateStr(first), to: toDateStr(last) };
+  }
+  return null; // custom
+}
+
+const STAGED_KEY = "heatmap-dashboard-staged";
+const HEATMAP_KEY = "heatmap-dashboard-heatmap";
+
+function lsGet(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function lsSet(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
 export function DashboardClient({ token, initialConfig }) {
   const [config, setConfig] = useState(initialConfig);
-  const [staged, setStaged] = useState(initialConfig);
+  const [staged, setStaged] = useState(() => lsGet(STAGED_KEY) ?? initialConfig);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // "saved" | "error" | null
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [clearStatus, setClearStatus] = useState(null); // "cleared" | "error" | null
-  const [captureMode, setCaptureMode] = useState(() => deriveCaptureMode(initialConfig.captureWindow));
+  const [captureMode, setCaptureMode] = useState(() => deriveCaptureMode((lsGet(STAGED_KEY) ?? initialConfig).captureWindow));
 
   // Simulation section
   const [simCount, setSimCount] = useState(null); // null = not yet loaded
@@ -141,12 +195,37 @@ export function DashboardClient({ token, initialConfig }) {
   const [showSimDiscardConfirm, setShowSimDiscardConfirm] = useState(false);
   const [simFeedback, setSimFeedback] = useState(null); // "generated" | "discarded" | "error" | null
 
+  // Report section
+  const [reportMinSessions, setReportMinSessions] = useState(DEFAULT_MIN_SESSIONS);
+  const [reportMinSessionsSaved, setReportMinSessionsSaved] = useState(DEFAULT_MIN_SESSIONS);
+  const [reportMinSaveStatus, setReportMinSaveStatus] = useState(null); // "saved" | null
+  const [reportSessionCount, setReportSessionCount] = useState(null); // null = loading
+
+  function fetchReportCount(cfg) {
+    const from = cfg?.captureWindow?.from ?? null;
+    const to = cfg?.captureWindow?.to ?? null;
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    fetch(`/api/checkout-heatmap/query?${params.toString()}`)
+      .then((r) => r.json())
+      .then((d) => setReportSessionCount(Array.isArray(d.sessions) ? d.sessions.length : 0))
+      .catch(() => setReportSessionCount(0));
+  }
+
+  const configRef = useRef(initialConfig);
+  useEffect(() => { configRef.current = config; }, [config]);
+
+  const heatmapHydrated = useRef(false);
+
   useEffect(() => {
     fetch("/api/checkout-heatmap/simulate")
       .then((r) => r.json())
       .then((d) => setSimCount(typeof d.count === "number" ? d.count : 0))
       .catch(() => setSimCount(0));
     fetchReportCount(initialConfig);
+    const pollId = setInterval(() => fetchReportCount(configRef.current), 10000);
+    return () => clearInterval(pollId);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleGenerate() {
@@ -193,27 +272,30 @@ export function DashboardClient({ token, initialConfig }) {
     }
   }
 
-  function handleViewSim() {
-    window.open("/checkout/001/heatmap?step=personal-info&source=sim", "_blank", "noopener");
-  }
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("reportMinSessions");
+      const n = Number(stored);
+      if (MIN_SESSIONS_OPTIONS.includes(n)) {
+        setReportMinSessions(n);
+        setReportMinSessionsSaved(n);
+      }
+    } catch {}
+  }, []);
 
-  // Report section
-  const [reportMinSessions, setReportMinSessions] = useState(DEFAULT_MIN_SESSIONS);
-  const [reportSessionCount, setReportSessionCount] = useState(null); // null = loading
+  useEffect(() => {
+    const s = lsGet(HEATMAP_KEY);
+    if (!s) return;
+    if (s.step) setHeatmapStep(s.step);
+    if (s.view) setHeatmapView(s.view);
+    if (s.type) setHeatmapType(s.type);
+    if (s.outcome) setHeatmapOutcome(s.outcome);
+    if (s.timeframeMode) setHeatmapTimeframeMode(s.timeframeMode);
+    if (s.from !== undefined) setHeatmapFrom(s.from);
+    if (s.to !== undefined) setHeatmapTo(s.to);
+  }, []);
 
-  function fetchReportCount(cfg) {
-    const from = cfg?.captureWindow?.from ?? null;
-    const to = cfg?.captureWindow?.to ?? null;
-    const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    fetch(`/api/checkout-heatmap/query?${params.toString()}`)
-      .then((r) => r.json())
-      .then((d) => setReportSessionCount(Array.isArray(d.sessions) ? d.sessions.length : 0))
-      .catch(() => setReportSessionCount(0));
-  }
-
-  // Heatmap section — local filter state (not persisted, no Save needed)
+  // Heatmap section — defaults here; restored from localStorage in useEffect (client-only)
   const [heatmapStep, setHeatmapStep] = useState("personal-info");
   const [heatmapView, setHeatmapView] = useState("desktop_view");
   const [heatmapType, setHeatmapType] = useState("clicks");
@@ -221,6 +303,16 @@ export function DashboardClient({ token, initialConfig }) {
   const [heatmapTimeframeMode, setHeatmapTimeframeMode] = useState("custom");
   const [heatmapFrom, setHeatmapFrom] = useState("");
   const [heatmapTo, setHeatmapTo] = useState("");
+
+  // Persist staged Data config and Heatmap filters to localStorage on every change
+  useEffect(() => { lsSet(STAGED_KEY, staged); }, [staged]);
+  useEffect(() => {
+    if (!heatmapHydrated.current) {
+      heatmapHydrated.current = true;
+      return;
+    }
+    lsSet(HEATMAP_KEY, { step: heatmapStep, view: heatmapView, type: heatmapType, outcome: heatmapOutcome, timeframeMode: heatmapTimeframeMode, from: heatmapFrom, to: heatmapTo });
+  }, [heatmapStep, heatmapView, heatmapType, heatmapOutcome, heatmapTimeframeMode, heatmapFrom, heatmapTo]);
 
   const isDirty = JSON.stringify(staged) !== JSON.stringify(config);
 
@@ -260,7 +352,7 @@ export function DashboardClient({ token, initialConfig }) {
   function handleHeatmapTimeframeModeChange(mode) {
     setHeatmapTimeframeMode(mode);
     if (mode === "custom") return;
-    const r = presetRange(mode);
+    const r = heatmapPresetRange(mode);
     if (r) { setHeatmapFrom(r.from); setHeatmapTo(r.to); }
   }
 
@@ -290,6 +382,7 @@ export function DashboardClient({ token, initialConfig }) {
       });
       if (!res.ok) throw new Error("Save failed");
       setConfig(staged);
+      try { localStorage.removeItem(STAGED_KEY); } catch {}
       fetchReportCount(staged);
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus(null), 2500);
@@ -520,6 +613,7 @@ export function DashboardClient({ token, initialConfig }) {
 
             <Row title="Timeframe" description="Show data from this date range.">
               <CaptureWindowSelect
+                presets={HEATMAP_PRESETS}
                 mode={heatmapTimeframeMode}
                 from={heatmapFrom}
                 to={heatmapTo}
@@ -559,7 +653,9 @@ export function DashboardClient({ token, initialConfig }) {
 
           {/* ─── REPORT ─── */}
           <section data-dashboard-section="report" className="border-t border-slate-100 px-5 py-4">
-            <h2 className="mb-4 text-xl font-bold text-[#1F2A37]">Report</h2>
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-[#1F2A37]">Report</h2>
+            </div>
 
             <Row title="Minimum sessions" description="Minimum accumulated sessions required before generating a report.">
               <select
@@ -574,6 +670,29 @@ export function DashboardClient({ token, initialConfig }) {
               </select>
             </Row>
 
+            <div className="flex items-center justify-between border-t border-slate-100 px-0 py-3">
+              <div className="text-sm">
+                {reportMinSaveStatus === "saved" && <span className="font-medium text-green-600">Saved</span>}
+                {reportMinSessions !== reportMinSessionsSaved && !reportMinSaveStatus && (
+                  <span className="text-xs text-slate-400">Unsaved changes</span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  try { localStorage.setItem("reportMinSessions", String(reportMinSessions)); } catch {}
+                  setReportMinSessionsSaved(reportMinSessions);
+                  setReportMinSaveStatus("saved");
+                  setTimeout(() => setReportMinSaveStatus(null), 2500);
+                }}
+                disabled={reportMinSessions === reportMinSessionsSaved}
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460] disabled:opacity-50"
+                data-dashboard-report-save
+              >
+                <Save className="h-4 w-4" />
+                Save
+              </button>
+            </div>
+
             <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <span className="text-sm font-medium text-slate-700" data-dashboard-report-session-count>
                 {reportSessionCount === null
@@ -586,6 +705,7 @@ export function DashboardClient({ token, initialConfig }) {
               <button
                 type="button"
                 disabled={!isReportGateMet(reportSessionCount, reportMinSessions)}
+                onClick={() => { window.location.href = `/dashboard/report?token=${token}`; }}
                 className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460] disabled:opacity-40"
                 data-dashboard-report-generate
               >
@@ -635,27 +755,62 @@ export function DashboardClient({ token, initialConfig }) {
                   className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460] disabled:opacity-50"
                   data-dashboard-sim-generate
                 >
-                  {simGenerating ? "Generating…" : "Generate"}
+                  {simGenerating ? "Generating…" : "Heatmap simulation"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = `/dashboard/report?token=${token}&source=sim`; }}
+                  disabled={simCount === 0}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460] disabled:opacity-50"
+                  data-dashboard-sim-report
+                >
+                  Report simulation
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowSimDiscardConfirm(true)}
                   disabled={simDiscarding || simCount === 0}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
+                  title="Discard simulation data"
+                  aria-label="Discard simulation data"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-40"
                   data-dashboard-sim-discard
                 >
-                  Discard
+                  <Trash2 className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={handleViewSim}
-                  disabled={simCount === 0}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
-                  data-dashboard-sim-view
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  View Simulation
-                </button>
+              </div>
+
+              {/* Demo: frozen real sessions (separate schema, no overlap with sim data) */}
+              <div className="mt-6 border-t border-slate-100 pt-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-[#1F2A37]">Data recorded based on Maksym&apos;s actions</h3>
+                  <DemoTooltip
+                    label="open tooltip to see the data that is mapped to heatmap and report"
+                    text="Heatmap and report are built on data collected between May 28 and May 29 for: personal information step, drop off time frame: 10 seconds, all element types, all event types, traffic 100%."
+                  />
+                </div>
+                <p className="mb-4 text-xs text-slate-400">
+                  Open tooltip to see the data that is mapped to heatmap and report.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/checkout/001/heatmap?source=demo&step=personal-info`, "_blank", "noopener")}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460]"
+                    data-dashboard-demo-heatmap
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Heatmap
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/dashboard/report?token=${token}&source=demo`, "_blank", "noopener")}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[#3C5A7D] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#2d4460]"
+                    data-dashboard-demo-report
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Report
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -829,6 +984,39 @@ function MultiSelect({ groups, isEnabled, onToggle, optionAttr, triggerAttr }) {
   );
 }
 
+function DemoTooltip({ label, text }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        title={label}
+        aria-label={label}
+        className="flex items-center justify-center rounded-full text-slate-400 transition hover:text-[#3C5A7D]"
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 z-40 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+          <p className="text-xs leading-relaxed text-slate-600">{text}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HeatmapBreathingIcon() {
   return (
     <span className="inline-block shrink-0" aria-hidden style={{ width: 44, height: 44 }}>
@@ -906,7 +1094,7 @@ function ViewIconSelect({ value, onChange }) {
   );
 }
 
-function CaptureWindowSelect({ mode, from, to, onModeChange, onDateChange }) {
+function CaptureWindowSelect({ mode, from, to, onModeChange, onDateChange, presets = CAPTURE_PRESETS }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -928,7 +1116,7 @@ function CaptureWindowSelect({ mode, from, to, onModeChange, onDateChange }) {
           : to
             ? `Until ${to}`
             : "Custom"
-      : CAPTURE_PRESETS.find((p) => p.value === mode)?.label ?? "Custom";
+      : presets.find((p) => p.value === mode)?.label ?? "Custom";
 
   function pick(value) {
     onModeChange(value);
@@ -949,7 +1137,7 @@ function CaptureWindowSelect({ mode, from, to, onModeChange, onDateChange }) {
 
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-          {CAPTURE_PRESETS.map((p) => (
+          {presets.map((p) => (
             <button
               key={p.value}
               type="button"

@@ -49,8 +49,9 @@ function CheckoutHeatmapContent() {
   const selectedOutcome = readOutcome(searchParams.get("outcome"));
   const selectedFrom = searchParams.get("from") ?? "";
   const selectedTo = searchParams.get("to") ?? "";
-  // `source=sim` directs the sessions fetch to the sim schema; default reads real data.
-  const source = searchParams.get("source") === "sim" ? "sim" : "real";
+  // `source=sim`/`source=demo` direct the sessions fetch to the matching schema; default reads real data.
+  const sourceParam = searchParams.get("source");
+  const source = sourceParam === "sim" || sourceParam === "demo" ? sourceParam : "real";
   const { item, loading: itemLoading } = useCatalogItem(sku);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,7 @@ function CheckoutHeatmapContent() {
     const loadSessions = async ({ initial = false } = {}) => {
       if (initial) setLoading(true);
       try {
-        const url = source === "sim" ? "/api/checkout-heatmap?source=sim" : "/api/checkout-heatmap";
+        const url = source === "real" ? "/api/checkout-heatmap" : `/api/checkout-heatmap?source=${source}`;
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json().catch(() => ({}));
@@ -309,7 +310,7 @@ function CheckoutHeatmapContent() {
         topBarRight={topBarRight}
         forcedWidth={forcedWidth}
       >
-        <div className="pointer-events-none">
+        <div className="pointer-events-none" {...(!itemLoading && item ? { "data-heatmap-checkout-ready": true } : {})}>
           {itemLoading ? (
             <div className="py-24 text-sm text-muted-foreground">Loading checkout preview...</div>
           ) : !item ? (

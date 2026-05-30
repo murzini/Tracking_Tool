@@ -8,7 +8,7 @@ import { test, expect, Page } from "@playwright/test";
 // Test 53: Sampling rate from config — 0% produces no sessions.
 
 const SKU = "001";
-const TOKEN = "m6-dev-token";
+const TOKEN = "dashboard-link";
 
 type Config = {
   steps?: Record<string, boolean>;
@@ -182,9 +182,16 @@ test("Test 52 — disabling mouse-move event type stops mouse-move capture", asy
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await sweep(page);
 
-  const sessions = await getStoredSessions(page);
-  expect(sessions.length, "session was captured (click is still enabled)").toBeGreaterThanOrEqual(1);
+  // The session is persisted asynchronously (pagehide beacon → ingest), so poll
+  // until it lands rather than reading once and racing the write.
+  await expect
+    .poll(async () => (await getStoredSessions(page)).length, {
+      message: "session was captured (click is still enabled)",
+      timeout: 5000,
+    })
+    .toBeGreaterThanOrEqual(1);
 
+  const sessions = await getStoredSessions(page);
   const moveSessions = sessions.filter((s) =>
     (s.events ?? []).some((e) => e.type === "mouse-move")
   );
@@ -220,8 +227,15 @@ test("Test 53 — sampling rate 0% in config produces no sessions", async ({ pag
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await sweep(page);
 
-  const afterSessions = await getStoredSessions(page);
-  expect(afterSessions.length, "sessions recorded after restoring defaults (100%)").toBeGreaterThanOrEqual(1);
+  // The session is persisted asynchronously (pagehide beacon → ingest), so poll
+  // until it lands rather than reading once and racing the write.
+  await expect
+    .poll(async () => (await getStoredSessions(page)).length, {
+      message: "sessions recorded after restoring defaults (100%)",
+      timeout: 5000,
+    })
+    .toBeGreaterThanOrEqual(1);
 
+  const afterSessions = await getStoredSessions(page);
   console.log(`  sampling gate OK — 0 sessions at 0%, ${afterSessions.length} at defaults`);
 });

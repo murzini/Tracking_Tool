@@ -261,6 +261,99 @@ test("[desktop] free-space clicks produce dots at the correct offset from the ne
   ).toBeLessThanOrEqual(FREE_SPACE_TOLERANCE_PX);
 });
 
+// ─── Test 70: error:required-field dot offset — wide label regression ────────
+// Regression for the dx:0/dy:0 bug fixed 2026-05-29. A wide validation-error
+// label spanning the full column caused dots to snap to element centre even
+// when the click was at the left edge. Clicking the left quarter of the first
+// error label must produce a dot near the actual click — not the element centre.
+
+test("[desktop] error:required-field click at left edge lands at actual click position, not element centre", async ({ page }) => {
+  const evidenceDir = `${EVIDENCE_BASE}/desktop/error-offset`;
+  ensureDir(evidenceDir);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await clearHeatmapData(page);
+  await navigateToPersonalInfo(page);
+
+  // Trigger validation errors by clicking the CTA without filling any fields.
+  const ctaPos = await getCheckoutElementCenter(page, "cta:choose-delivery");
+  await page.evaluate((y) => window.scrollTo({ top: Math.max(0, y - window.innerHeight / 2), behavior: "instant" }), ctaPos.y);
+  await page.waitForTimeout(100);
+  const freshCtaPos = await getCheckoutElementCenter(page, "cta:choose-delivery");
+  await page.mouse.click(freshCtaPos.x, freshCtaPos.y);
+  await page.waitForTimeout(300);
+
+  // Wait for the first error label to appear.
+  const firstError = page.locator("[data-field-error]").first();
+  await firstError.waitFor({ state: "visible", timeout: 5000 });
+  await firstError.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+
+  // Measure the error element and surface so we can click far from centre.
+  const geometry = await page.evaluate(() => {
+    const el = document.querySelector("[data-field-error]") as HTMLElement | null;
+    const surface = document.querySelector('[data-checkout-heatmap-surface="shop-content"]') as HTMLElement | null;
+    if (!el || !surface) return null;
+    const elRect = el.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    return {
+      elLeft: elRect.left,
+      elRight: elRect.right,
+      elTop: elRect.top,
+      elBottom: elRect.bottom,
+      elWidth: elRect.width,
+      surfaceLeft: surfaceRect.left,
+      surfaceTop: surfaceRect.top,
+    };
+  });
+  if (!geometry) throw new Error("[data-field-error] or surface not found after CTA click");
+  expect(geometry.elWidth, "error label must be wide (>100px) for this test to be meaningful").toBeGreaterThan(100);
+
+  // Click at the LEFT QUARTER of the error label — far from its centre.
+  const clickViewportX = geometry.elLeft + geometry.elWidth * 0.1;
+  const clickViewportY = (geometry.elTop + geometry.elBottom) / 2;
+  await page.mouse.click(clickViewportX, clickViewportY);
+
+  // Expected dot position in surface coordinates.
+  const expectedSurfaceX = clickViewportX - geometry.surfaceLeft;
+  const expectedSurfaceY = clickViewportY - geometry.surfaceTop;
+  // Element centre in surface coordinates — the dot must NOT land here.
+  const elementCenterSurfaceX = geometry.elLeft + geometry.elWidth / 2 - geometry.surfaceLeft;
+
+  console.log(`  Error label width: ${Math.round(geometry.elWidth)}px`);
+  console.log(`  Click viewport: (${Math.round(clickViewportX)}, ${Math.round(clickViewportY)})`);
+  console.log(`  Expected surface: (${Math.round(expectedSurfaceX)}, ${Math.round(expectedSurfaceY)})`);
+  console.log(`  Element centre surface X: ${Math.round(elementCenterSurfaceX)}`);
+
+  await page.waitForTimeout(INACTIVITY_MS + 500);
+  await flushActiveHeatmapSession(page);
+
+  await page.goto(`/checkout/${SKU}/heatmap?view=desktop_view`);
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(1000);
+
+  const dots = await getHeatmapDots(page);
+  expect(dots.length, "at least one dot must be recorded").toBeGreaterThan(0);
+  await saveEvidenceScreenshots(page, evidenceDir);
+
+  const { dot, dist } = closestDot(dots, expectedSurfaceX, expectedSurfaceY);
+  console.log(`  Closest dot: (${Math.round(dot.cx)}, ${Math.round(dot.cy)}) | dist from expected: ${dist.toFixed(1)}px`);
+  console.log(`  Dot distance from element centre X: ${Math.abs(dot.cx - elementCenterSurfaceX).toFixed(1)}px`);
+
+  // The dot must land near the actual click, not the element centre.
+  expect(
+    dist,
+    `error-label dot is ${dist.toFixed(1)}px from actual click position (tolerance: ${FREE_SPACE_TOLERANCE_PX}px). Likely dx:0/dy:0 regression.`
+  ).toBeLessThanOrEqual(FREE_SPACE_TOLERANCE_PX);
+
+  // Guard: the actual click was at least 20% of element width away from centre.
+  // If the dot were at element centre, this distance would be > 20px for a 100px+ label.
+  const distFromCentre = Math.abs(dot.cx - elementCenterSurfaceX);
+  expect(
+    distFromCentre,
+    `dot is suspiciously close to element centre (${distFromCentre.toFixed(1)}px away) — dx:0/dy:0 bug may have regressed`
+  ).toBeGreaterThan(15);
+});
+
 // ─── Test 9: validation state does not displace dots (desktop + mobile) ─────
 // Core regression test for the anchor approach: validation errors shift layout,
 // but dots must still land on the correct elements at both viewports.

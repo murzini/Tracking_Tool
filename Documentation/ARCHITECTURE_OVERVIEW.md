@@ -154,7 +154,7 @@ Primary files:
 - `tests/unit/scannerUtils.test.ts` — 13 unit tests (M7.3: `slugify` + `safeAttrSelector`)
 - `tests/unit/reportGateLogic.test.ts` — unit tests (M7 Part 4: `isReportGateMet` + `getGateNoteText`)
 - `tests/unit/reportAggregationTransforms.test.ts` — unit tests (M7 Part 5: all aggregation transform functions)
-- `tests/unit/reportScreenshotConfig.test.ts` — 28 unit tests (M7 Part 6: `buildHeatmapUrl` + `buildScreenshotRequests`)
+- `tests/unit/reportScreenshotConfig.test.ts` — 32 unit tests (M7 Part 6: 28 for `buildHeatmapUrl` + `buildScreenshotRequests`; Part 9: +4 for `steps` param in `buildScreenshotRequests`)
 - `tests/unit/reportPromptBuilder.test.ts` — 8 unit tests (M7 Part 7: `buildReportPrompt` — sections, data, config, schema, graceful empty)
 - `tests/unit/reportResponseParser.test.ts` — 9 unit tests (M7 Part 7: `parseReportResponse` — valid/partial/malformed/mismatch/empty/hypotheses)
 - `playwright.config.ts`
@@ -177,8 +177,9 @@ Primary files:
 - `tests/e2e/m6-dashboard.spec.ts` — Test 54 (M6 P4 + M6.1 update: dashboard auth gate wrong/missing token → blocked; valid token renders Data/Heatmap/Simulation/Report sections; step toggle + Save persists via config API; Clear-data confirmation wipes all sessions)
 - `tests/e2e/m6-heatmap-viewer.spec.ts` — Tests 55–56 (M6 P5: viewer outcome filter — drop-offs/completers/all each show the correct session count; viewer timeframe filter — out-of-range from/to shows 0 sessions)
 - `tests/e2e/m6-sim.spec.ts` — Tests 57–63 (M6.1: GET /simulate count; POST/DELETE auth gate; generate isolates to sim schema; discard wipes sim only; viewer with source=sim; distribution check; dashboard Simulation section Generate/View/Discard)
+- `tests/e2e/m7-report.spec.ts` — Tests 64–69 (M7: min-sessions gate UI, report section position, report API auth gate, min-sessions localStorage persist, gate note text, heatmap filter localStorage persist — Tests 67+69 replaced original mock-Claude render tests 2026-05-30). Test 70 in `m1-heatmap-anchor.spec.ts` (error dot-offset regression lock).
 - Tests 2 and 3 (`m1-heatmap.spec.ts`) rewritten in M6 P6: Test 2 uses the dashboard Clear-data confirmation flow; Test 3 uses the dashboard Heatmap section to open the viewer (the TopBar Heatmap dropdown and Clear-data button were removed from the live Shop).
-- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. M6 P4 added Test 54. M6 P5 added Tests 55–56. M6.1 updated Test 54 (four sections) and added Tests 57–63. M6.2 added 54 Vitest unit tests across 4 files. M7.1 added 16 unit tests (`captureWindowCheck`). M7.2 added 24 unit tests (`ingestConfigGates`). M7.3 added 126 unit tests (6 files). M7 Part 7 added 17 unit tests (`reportPromptBuilder` 8, `reportResponseParser` 9). Full suite: 73 e2e + 269 unit = 342 active tests passing.
+- M3 (Part 2) updated Tests 1, 2, 12, 13, 14, 15, 16, 18 from `session.clicks` to `session.events`. M5 added Tests 45–48 and all flow helpers updated to navigate through the login gate. M6 P2+P3 added Tests 49–53. M6 P4 added Test 54. M6 P5 added Tests 55–56. M6.1 updated Test 54 (four sections) and added Tests 57–63. M6.2 added 54 Vitest unit tests across 4 files. M7.1 added 16 unit tests (`captureWindowCheck`). M7.2 added 24 unit tests (`ingestConfigGates`). M7.3 added 126 unit tests (6 files). M7 Part 7 added 17 unit tests (`reportPromptBuilder` 8, `reportResponseParser` 9). M7 Part 9 added 4 unit tests (`reportScreenshotConfig` — `steps` param). M7 Part 10 added Test 70 (error dot-offset regression lock, `m1-heatmap-anchor.spec.ts`); added `m7-report.spec.ts` (Tests 64–69, of which Tests 67+69 replaced the original mock-Claude render tests). Full suite: 80 e2e + 273 unit = 353 active tests passing.
 
 Responsibility:
 - verify milestone behavior
@@ -655,3 +656,51 @@ M6.1 is delivered in three sequential parts; the next part does not begin until 
 ### Tech debt context
 
 Anticipated M6.1 debt identified at planning (full wording in `PRODUCT_OVERVIEW.md` → Tech Debt → Anticipated (M6.1)): the **`source`→schema resolution must stay allowlisted** (critical — mitigated here by passing an enum, never a raw schema name); schema-migration burden now spans more schemas; the synchronous generator may be slow (mitigated by bulk multi-row inserts; chunk/async if needed); hardcoded distribution; sim data persists until manually discarded; simulation fixed to Personal Information only.
+
+## M7 architecture — AI report pipeline
+
+### Goal and boundaries
+Generate an AI report from captured visitor data. The pipeline keeps two concerns strictly separate: **Claude analyzes aggregated data only**, and **heatmap screenshots are visual illustrations only** (never sent to Claude). Pure logic (gate, aggregation transforms, prompt builder, response parser) lives in `lib/prototype/`; the API route and React pages are thin wrappers.
+
+### Report request flow
+1. **Page:** `/dashboard/report?token=...&source=...` → `page.jsx` reads `token` + `source` and renders `ReportClientPage`.
+2. **Client:** `ReportClientPage` POSTs to `/api/checkout-heatmap/report?source=...` with the bearer token; shows a decaying progress bar (~asymptote 90% over ~40s) until the response arrives.
+3. **Route** (`app/api/checkout-heatmap/report/route.js`, `runtime = "nodejs"`, `maxDuration = 60`):
+   - Auth-gates via `isAuthorizedToken`.
+   - `resolveHeatmapSchema(source)` → reads sessions from the matching schema (`real` → base, `sim` → sim schema, `demo` → `heatmap_demo`). Same allowlist discipline as M6.1.
+   - Maps normalized sessions back to DB-row shape (`toDbRow` / `toDbEvent`) and runs all aggregation transforms (`reportAggregationTransforms`) into `aggregatedData`.
+   - Builds the prompt (`buildReportPrompt` → `{ system, userMessage }`) — **data only, no images**.
+   - Calls `client.messages.create` on `claude-sonnet-4-6` (await, sequential — screenshots moved to client).
+   - Parses Claude's JSON (`parseReportResponse`, after stripping markdown fences); returns `{ ok, report, aggregatedData, stepsWithData }`. `stepsWithData` is the subset of steps that have sessions (keys of `aggregatedData.stepAnalysis`) — used by the client to scope the screenshot fetch. A Claude failure → 500.
+4. **Render:** `ReportClientPage` receives `{ report, aggregatedData, stepsWithData }` and immediately renders all four sections — Claude narrative text and charts/tables (Recharts, built client-side from `aggregatedData`). After rendering text, it fires a second fetch to `/api/checkout-heatmap/screenshots` with `{ source, steps: stepsWithData }` — screenshots populate asynchronously and appear without a page reload. Step names and percentages in the narrative are **bolded by the renderer** (pattern-based: `BOLD_PAT` regex over known step names + `\d+%` — not by Claude). In Step Analysis sub-section A, each screenshot is matched by `(step, type)` and displayed above the corresponding Claude text.
+
+### Key decisions
+- **Model:** `claude-sonnet-4-6` for the POC (cost + speed). Switch to `claude-opus-4-7` on Autohero integration — single switch point in the route's `messages.create` call. Documented in `FUTURE_THIRD_PARTY_INTEGRATION.md`.
+- **Images never reach Claude.** Image tokens are priced by pixel area (~750 tokens / 224×224 tile); 9 screenshots dominated cost while adding nothing the aggregated data didn't already carry. Screenshots are produced from the same data and shown as illustrations only.
+- **No server-side parallelism between Claude and screenshots.** Screenshots are now fetched client-side after the report text renders — the server only awaits Claude. Total perceived latency: Claude (~20–40s) for text, then screenshots load in the background without blocking the reader.
+- **Scope-driven screenshots.** The screenshots route queries which steps have sessions before capturing — only `N_steps × 3 types` pages are captured, not a fixed 9. Example: demo data (Personal Information only) → 3 screenshots.
+- **Images async on client.** The report text and charts render immediately from the API response; screenshots render as placeholders and resolve asynchronously, so the user is never blocked waiting for images.
+- **Charts/tables are code-only.** `aggregatedData` is returned alongside the Claude report and fed to Recharts (client-side). No extra API calls or DB queries. Claude never touches chart data.
+- **Bold formatting is code-only.** The renderer detects known step names and numeric patterns in Claude's narrative and wraps them in bold — Claude is not instructed to do this. Consistent and predictable; requires a maintained list of step names.
+- **Sim parity.** `source=sim` flows through the whole pipeline (read → aggregate → screenshots → Claude), so the "Report simulation" button produces a real report against simulation data.
+- **Demo parity.** `source=demo` flows through the same pipeline against `heatmap_demo` (a frozen copy of the 22 real sessions). The Simulation section's demo "Report" button opens `/dashboard/report?token=...&source=demo` in a new tab — it bypasses the min-sessions gate by opening the report page directly. See `PRODUCT_OVERVIEW.md` → M7 implementation decisions → "Demo setup".
+
+### Pure modules (unit-tested, no DB/browser)
+- `reportGateLogic.js` — `isReportGateMet`, `getGateNoteText`, `MIN_SESSIONS_OPTIONS` (`[20,100,200,500,1000]`), `DEFAULT_MIN_SESSIONS` (100).
+- `reportAggregationTransforms.js` — raw DB rows → shaped per-section data.
+- `reportPromptBuilder.js` — aggregated data + config → `{ system, userMessage }`.
+- `reportResponseParser.js` — Claude JSON → validated report (throws `ReportParseError`; partial with `_partial` if top-level keys missing).
+- `reportScreenshotConfig.js` — builds screenshot requests (up to 9: 3 steps × clicks/moves/scrolls); accepts optional `steps` param to capture only the subset with session data.
+
+### Part 9 — implementation scope
+- **UI tweaks — DONE:** Report-section Save button (persist min-sessions); Simulation cleanup (remove View Simulation, Discard → `Trash2` icon + confirm); live session-counter polling (~10s).
+- **Screenshot parallelisation — DONE:** `screenshots/route.js` now captures all 9 pages concurrently (`Promise.allSettled`); abort raised 20s → 45s. Verified ~15s.
+- **Demo data path — DONE:** `heatmap_demo` schema + `source=demo` for the frozen 22 sessions; Simulation-section Heatmap/Report demo buttons. Heatmap timeframe presets split into past/present (`HEATMAP_PRESETS`) vs the Data section's future presets (`CAPTURE_PRESETS`).
+- **Charts/tables — DONE (2026-05-29):** `aggregatedData` + `stepsWithData` returned by report route. `ReportClientPage` renders Recharts bar charts (sessions-per-step funnel, exit-reason horizontal bar, active/idle split) and data tables (field abandonment, drop-off triggers, completors vs drop-offs) from `aggregatedData`.
+- **Images async on client — DONE (2026-05-29):** Report route returns Claude text immediately (no screenshot fetch server-side). Client fires a second fetch to `/api/checkout-heatmap/screenshots` with `{ steps: stepsWithData }` after text renders; images populate asynchronously.
+- **Scope-driven screenshot capture — DONE (2026-05-29):** `buildScreenshotRequests` accepts optional `steps` param; route passes `stepsWithData` from client. Only captures N_steps × 3 types (not always 9).
+- **Bold formatting — DONE (2026-05-29):** `Prose` component uses `BOLD_PAT` regex to bold step names and `\d+%` patterns. No Claude instruction needed.
+- **Vercel-compatible screenshots — DONE (2026-05-29):** `screenshots/route.js` now imports `chromium` from `playwright-core` (regular dep) and `chromiumBinary` from `@sparticuz/chromium` (regular dep). On Vercel (`process.env.VERCEL`), uses `chromiumBinary.executablePath()` + `chromiumBinary.args`; locally, `executablePath: undefined` (playwright-core finds the `@playwright/test`-installed binary in the shared cache). `@playwright/test` stays as devDep for e2e tests. `next.config.mjs` adds `experimental.serverComponentsExternalPackages: ["playwright-core", "@sparticuz/chromium"]` — without this, Next.js webpack tries to bundle these at build time and fails on the `chromium-bidi` transitive dep.
+
+### Part 10 — close gates
+Unit + e2e suite, doc review, agent review, tech-debt review, `AGENT_RUN_LOG.csv`, commit, push.

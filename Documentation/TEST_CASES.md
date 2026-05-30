@@ -75,7 +75,7 @@ Verify that repeated clicks on the same element produce a proportionally larger 
 
 ---
 
-### `tests/e2e/m1-heatmap-anchor.spec.ts` — Tests 7, 8, 9
+### `tests/e2e/m1-heatmap-anchor.spec.ts` — Tests 7, 8, 9, 70
 
 These tests verify the element-anchor capture approach: each click is stored as an offset from the nearest named element and dots are placed relative to that element in the heatmap.
 
@@ -98,6 +98,13 @@ Core regression: validation errors shift layout but dots must still land on corr
 - Desktop (1280×800): clear data → navigate via full visitor flow with `m1HeatmapTest=1` → click CTA to trigger validation → wait 300ms for errors to render → click Name, ZIP, CTA again while validation is visible → wait 2s → flush session → open heatmap at `?view=desktop_view` → for each of 3 targets: find closest dot → assert distance from element center ≤ 5px → screenshots
 - Mobile (430×932): same scenario → open heatmap at `?view=mobile_view` → same assertions
 - Evidence: `test-results/Test - Element anchor precision/Check evidence/desktop/validation/` and `.../mobile/validation/`
+
+**Test 70 — error:required-field dot offset at left edge (desktop)** ✅ *Added 2026-05-30*
+Regression lock for the `dx:0/dy:0` bug fixed 2026-05-29. Wide validation-error labels span the full column; clicking at the left edge must store the real offset, not zero.
+- Desktop (1280×800): clear data → navigate via full visitor flow with `m1HeatmapTest=1` → click CTA to trigger validation → wait for first `[data-field-error]` → scroll into view → click at 10% from left edge of the error label → wait 2s → flush session → open heatmap at `?view=desktop_view`
+- Assert: closest dot is ≤ 10px from the actual click surface position
+- Assert: dot is >15px from the element centre X (would fail if dx:0/dy:0 bug regressed)
+- Evidence: `test-results/Test - Element anchor precision/Check evidence/desktop/error-offset/`
 
 ---
 
@@ -536,13 +543,17 @@ All in `tests/e2e/m6-sim.spec.ts`.
 - At least one session carries `view: "desktop_view"` and at least one carries `view: "mobile_view"`.
 - Evidence: `test-results/M6.1 Test 62 - Generated distribution/Check evidence/`
 
-**Test 63 — Dashboard Simulation section: Generate, View Simulation, Discard**
+**Test 63 — Dashboard Simulation section: Heatmap simulation, Report simulation, View Simulation, Discard**
 - Navigate to `/dashboard?token=m6-dev-token` → `[data-dashboard-section="simulation"]` visible.
-- Click **Generate** button (`[data-dashboard-sim-generate]`) → `[data-dashboard-sim-status]` updates to show a count > 1000 (not "No simulation data").
+- Assert the generate button (`[data-dashboard-sim-generate]`) is labelled **"Heatmap simulation"** (renamed from "Generate" in M7).
+- Assert the **Report simulation** button (`[data-dashboard-sim-report]`) is visible and **disabled** when there is no simulation data.
+- Click **Heatmap simulation** (`[data-dashboard-sim-generate]`) → `[data-dashboard-sim-status]` updates to show a count > 1000 (not "No simulation data").
+- Assert `[data-dashboard-sim-report]` is now **enabled** (sim data exists).
 - Click **View Simulation** button (`[data-dashboard-sim-view]`) → new tab opens; URL contains `source=sim` and `step=personal-info`.
 - Click **Discard** button (`[data-dashboard-sim-discard]`) → confirmation overlay appears → click confirm → overlay closes → `[data-dashboard-sim-status]` shows zero / "No simulation data".
 - `GET /api/checkout-heatmap` (no source) → real sessions count is unchanged (discard did not touch real data).
 - Evidence: `test-results/M6.1 Test 63 - Dashboard Simulation section/Check evidence/dashboard-sim.png`
+- **Note (M7):** the View Simulation button and the Discard button styling are slated to change in Part 9 close (remove View Simulation; Discard → `Trash2` icon + confirmation). Update this test when that lands.
 
 ---
 
@@ -655,13 +666,17 @@ No e2e tests were added, removed, or changed. The unit tests cover pure-logic ru
 
 ## M7 — AI Report Generation
 
-**Status: IN PLANNING. Test plan produced 2026-05-28.**
+**Status: Parts 1–9 implemented; Part 10 (close gates) in progress. Unit tests 273/273 green.**
 
-### E2E tests (Tests 64–68)
+**E2e status (2026-05-30): 80/80 green.** All 15 failures from the 2026-05-29 run investigated and fixed: 11 token-mismatch tests (`m6-dev-token` → `dashboard-link`); async-write races (Tests 36, 52, 53 — `expect.poll`); stale SSR config cache (Test 54 — `getHeatmapConfigFresh()` + `force-dynamic` in `dashboard/page.jsx`); data-isolation (Test 12 ×2); Simulation regressions (Tests 62, 63); heatmap-filter hydration race (Test 69 — `heatmapHydrated` ref guard in `DashboardClient.jsx`).
 
-Keep as-is: all 63 existing tests. No existing test needs updating — M7 adds new code only.
+**Test changes 2026-05-30:** Test 70 added (`m1-heatmap-anchor.spec.ts` — error:required-field dot-offset regression lock; green). Tests 67 & 69 repurposed (`m7-report.spec.ts`): the old mock-Claude render tests were **deleted to avoid any paid API calls**, replaced with localStorage persistence tests (67 = report min-sessions, green; 69 = heatmap filters, failing per above). Both new tests snapshot and restore the user's original `localStorage` value in a `finally` block. **No e2e test calls the report-generation API against real Claude** — Test 66 only checks the 401 auth gate.
 
-New spec: `tests/e2e/m7-report.spec.ts` (5 new tests).
+### E2E tests (Tests 64–69)
+
+Test 63 updated (Simulation section gained the "Report simulation" button and the "Heatmap simulation" rename). All other existing tests keep as-is.
+
+New spec: `tests/e2e/m7-report.spec.ts` (Tests 64–69).
 
 ---
 
@@ -672,9 +687,9 @@ New spec: `tests/e2e/m7-report.spec.ts` (5 new tests).
 Steps:
 1. Navigate to `/dashboard?token=dashboard-link`.
 2. Scroll to `[data-dashboard-section="report"]`.
-3. Assert `[data-report-min-sessions]` dropdown is present with options 100/200/500/1000.
-4. Assert `[data-report-session-count]` is present (shows a number).
-5. Assert `[data-dashboard-generate-report]` button is disabled when accumulated count < selected minimum.
+3. Assert `[data-dashboard-report-min-sessions]` dropdown is present with options 20/100/200/500/1000 (20 added in M7 Part 9 so small real-data samples can be tested).
+4. Assert `[data-dashboard-report-session-count]` is present (shows a number).
+5. Assert `[data-dashboard-report-generate]` button is disabled when accumulated count < selected minimum.
 6. If needed, generate sim data so count ≥ 100, then assert button is enabled.
 
 Evidence: `test-results/M7 Test 64 - Min-sessions gate/Check evidence/`
@@ -694,31 +709,31 @@ Evidence: `test-results/M7 Test 65 - Report section position/Check evidence/`
 
 ---
 
-**Test 66 — Report API: auth gate + structured JSON response**
+**Test 66 — Report API: auth gate**
 
-*Goal:* `POST /api/checkout-heatmap/report` returns structured JSON when authenticated; 401 when not.
+*Goal:* `POST /api/checkout-heatmap/report` returns 401 when unauthenticated. Report generation (real Claude API call) is **not tested in the automated suite** — accepted test debt (decision 2026-05-29; ~$0.15/run, ~30–50s latency makes it unsuitable for a test suite). Coverage is manual only.
 
 Steps:
 1. `POST /api/checkout-heatmap/report` with no token → assert 401.
-2. `POST /api/checkout-heatmap/report` with valid `Authorization: Bearer dashboard-link` → assert 200.
-3. Assert response JSON contains top-level keys: `intro`, `executiveSummary`, `stepAnalysis`, `conclusions`.
 
-Evidence: `test-results/M7 Test 66 - Report API/Check evidence/`
+*Implementation note (2026-05-29):* original spec included an authenticated call expecting 200 + full report shape; removed because it triggered a real Claude API call on every suite run. Stripped to auth-only per the accepted-debt decision above.
+
+Evidence: `test-results/M7 Test 66 - Report API auth/Check evidence/`
 
 ---
 
-**Test 67 — Report page renders all 4 sections**
+**Test 67 — Report: min-sessions selection persists after save and reload** ✅ *Replaced 2026-05-30*
 
-*Goal:* `/dashboard/report?token=dashboard-link` renders with all four section markers visible.
+*Goal:* Selecting a min-sessions value and clicking Save writes to `localStorage`; reloading the dashboard restores the same value.
 
 Steps:
-1. Navigate to `/dashboard/report?token=dashboard-link`.
-2. Assert `[data-report-section="intro"]` visible.
-3. Assert `[data-report-section="executive-summary"]` visible.
-4. Assert `[data-report-section="step-analysis"]` visible.
-5. Assert `[data-report-section="conclusions"]` visible.
+1. Navigate to `/dashboard?token=dashboard-link` → clear `localStorage.reportMinSessions`.
+2. Select min-sessions = 500 in `[data-dashboard-report-min-sessions]`.
+3. Click `[data-dashboard-report-save]` → assert button becomes disabled (value saved).
+4. `page.reload()` → wait `networkidle`.
+5. Assert `[data-dashboard-report-min-sessions]` has value `"500"`.
 
-Evidence: `test-results/M7 Test 67 - Report page sections/Check evidence/`
+Evidence: `test-results/M7 Test 67 - Report min-sessions persist/Check evidence/`
 
 ---
 
@@ -730,10 +745,39 @@ Steps:
 1. Navigate to `/dashboard?token=dashboard-link`.
 2. Scroll to Report section.
 3. Select min-sessions = 200.
-4. Assert `[data-report-gate-note]` text contains "200".
+4. Assert `[data-dashboard-report-note]` text contains "200".
 5. Assert note text contains the accumulated session count number.
 
 Evidence: `test-results/M7 Test 68 - Gate note text/Check evidence/`
+
+---
+
+**Test 69 — Heatmap: filter selections persist across page visits** ✅ *Replaced 2026-05-30*
+
+*Goal:* Heatmap filter choices (step, type, outcome, view) are saved to `localStorage` on every change and restored when the dashboard is reopened — no Save button needed.
+
+Steps:
+1. Navigate to `/dashboard?token=dashboard-link` → clear `localStorage.heatmap-dashboard-heatmap`.
+2. Set `[data-dashboard-heatmap-step]` = `delivery`.
+3. Set `[data-dashboard-heatmap-type]` = `moves`.
+4. Set `[data-dashboard-heatmap-outcome]` = `drop-offs`.
+5. Click `[data-dashboard-heatmap-view="mobile_view"]`.
+6. Navigate to `/` then back to `/dashboard?token=dashboard-link` → wait `networkidle`.
+7. Assert step = `delivery`, type = `moves`, outcome = `drop-offs`, mobile view button has `aria-pressed="true"`.
+
+Evidence: `test-results/M7 Test 69 - Heatmap filter persist/Check evidence/`
+
+---
+
+**Validation-error dot offset — FIXED (2026-05-29); regression test added (2026-05-30)**
+
+`findNearestAnchor` stored `dx: 0, dy: 0` for all on-element clicks (dots landed at element centre). For wide `[data-field-error]` labels this shifted dots right of the actual click. Fixed by always storing the real offset from centre. Test 70 added to `m1-heatmap-anchor.spec.ts` — clicks the left edge of a wide error label and asserts the dot lands at the actual click position, not the element centre.
+
+---
+
+**Known issue — screenshot capture: loading state in mouse-moves view (2026-05-29)**
+
+Observed during demo: `app/api/checkout-heatmap/screenshots/route.js` captures the heatmap page before the checkout component finishes rendering — the resulting image shows "Loading checkout preview…" with 0 sessions. The `waitForSelector` resolves too early. Fix target: wait on a ready-signal that confirms rendered content (e.g. absence of the loading text or presence of `[data-heatmap-surface]` with content). Not covered by any automated test — manual verification only. Fix before M8.
 
 ---
 
@@ -862,6 +906,8 @@ Extracted from `checkoutScanner.js` (were private functions). Used for anchor ID
 - Note text composes correctly with current min + accumulated values (e.g. `"Report requires at least 200 sessions. Currently accumulated: 100."`).
 - Note text handles 0 accumulated.
 - Note text handles edge values (1, very large counts).
+- `MIN_SESSIONS_OPTIONS` equals `[20, 100, 200, 500, 1000]` (20 added in Part 9).
+- `DEFAULT_MIN_SESSIONS` is 100 and is contained in `MIN_SESSIONS_OPTIONS`.
 
 ---
 
@@ -956,6 +1002,19 @@ Extracted from `checkoutScanner.js` (were private functions). Used for anchor ID
 ### Unit tests — M7 new code (`reportResponseParser.js`, Part 7)
 
 **STATUS: DONE (2026-05-28). 9 unit tests, all green. 269 unit tests total.**
+
+---
+
+### Unit tests — M7 Part 9 (`reportScreenshotConfig.js` — steps param, 2026-05-29)
+
+**STATUS: DONE (2026-05-29). 4 new unit tests, all green. 273 unit tests total. E2e: 80 tests. Combined: 273 unit + 80 e2e = 353 active tests.**
+
+*Scope: new `steps` param added to `buildScreenshotRequests` for scope-driven screenshot capture.*
+
+- `steps: ['personal-info']` returns 3 requests (1 step × 3 types).
+- `steps: ['personal-info', 'pay']` returns 6 requests (2 steps × 3 types).
+- Unknown step names in `steps` are filtered out.
+- Empty `steps` array falls back to all 9 requests (all 3 steps).
 
 *Scope: pure function that takes raw Claude JSON response + validates/parses/normalises it. Rules to cover:*
 

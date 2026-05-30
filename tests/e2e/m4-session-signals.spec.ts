@@ -103,6 +103,15 @@ test("Test 36 — a zero-interaction visit is recorded as an abandoned bounce", 
   // No always-on runtime: force the lazy/derived finalize.
   await sweep(page, true);
 
+  // Neon may have a short commit-visibility window under load; poll until the
+  // sweep's outcome update lands so we don't read a stale in-progress state.
+  await expect
+    .poll(
+      async () => (await getStoredSessions(page)).every((s) => s.outcome !== "in-progress"),
+      { message: "sessions finalized after sweep", timeout: 5000 }
+    )
+    .toBe(true);
+
   const sessions = await getStoredSessions(page);
   expect(sessions.length, "the zero-interaction visit must be recorded").toBeGreaterThanOrEqual(1);
 

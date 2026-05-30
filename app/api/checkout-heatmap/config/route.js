@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import {
-  getHeatmapConfig,
+  getHeatmapConfigFresh,
   saveHeatmapConfig,
   deleteHeatmapConfig,
 } from "@/lib/prototype/heatmapConfigStore.server";
 import { isAuthorizedToken, extractBearerToken } from "@/lib/prototype/dashboardAuth";
 
+// Force dynamic so Next.js never serves a cached GET response.
+export const dynamic = "force-dynamic";
+
 // GET is public — the capture client fetches it on every visit.
+// Uses getHeatmapConfigFresh (always reads DB) so the response always reflects
+// the latest persisted state — eliminates any race with the module-level _cache.
 export async function GET() {
-  const config = await getHeatmapConfig();
+  const config = await getHeatmapConfigFresh();
   return NextResponse.json({ config });
 }
 

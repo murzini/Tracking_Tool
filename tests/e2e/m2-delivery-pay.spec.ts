@@ -90,7 +90,10 @@ test("Test 12 — sessions on the delivery step are tagged step: delivery", asyn
   await gotoStep(page, "delivery", "radio:delivery-novaposhta");
 
   // Drop any session created en route, then measure a clean delivery-only session.
+  // Also clear sessionStorage so the in-flight delivery session started by gotoStep
+  // doesn't get sent after the DB clear (that would produce 2 sessions).
   await clearHeatmapData(page);
+  await page.evaluate(() => window.sessionStorage.removeItem("m1.checkoutHeatmap.activeSession"));
 
   await page.locator('[data-heatmap-id="radio:delivery-pickup"]').click();
   await page.waitForTimeout(INACTIVITY_MS + 500);
@@ -110,7 +113,9 @@ test("Test 12 — sessions on the pay step are tagged step: pay", async ({ page 
   await navigateToCheckout(page);
   await gotoStep(page, "pay", "radio:pay-card");
 
+  // Same isolation fix as the delivery variant above.
   await clearHeatmapData(page);
+  await page.evaluate(() => window.sessionStorage.removeItem("m1.checkoutHeatmap.activeSession"));
 
   await page.locator('[data-heatmap-id="radio:pay-card"]').click();
   await page.waitForTimeout(INACTIVITY_MS + 500);

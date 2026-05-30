@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { extractBearerToken, isAuthorizedToken } from "../../../../lib/prototype/dashboardAuth";
 import { readCheckoutHeatmapSessions } from "../../../../lib/prototype/checkoutHeatmapStore.server";
+import { resolveHeatmapSchema } from "../../../../lib/prototype/db";
 import { getHeatmapConfig } from "../../../../lib/prototype/heatmapConfigStore.server";
 import { buildReportPrompt } from "../../../../lib/prototype/reportPromptBuilder";
 import { parseReportResponse } from "../../../../lib/prototype/reportResponseParser";
@@ -27,7 +28,7 @@ import {
 } from "../../../../lib/prototype/reportAggregationTransforms";
 
 export const runtime = "nodejs";
-// Claude Opus 4.7 + 9 screenshots + SQL aggregation: budget 60s (Vercel Pro)
+// Claude Sonnet + SQL aggregation; screenshots are fetched client-side (separate route)
 export const maxDuration = 60;
 
 // Convert normalized camelCase sessions back to the snake_case DB row shape
@@ -71,7 +72,9 @@ export async function POST(request) {
   const config = await getHeatmapConfig();
 
   // --- 2. Read sessions + build DB-row format for transforms ---
-  const sessions = await readCheckoutHeatmapSessions();
+  const { searchParams } = new URL(request.url);
+  const schema = resolveHeatmapSchema(searchParams.get("source") ?? undefined);
+  const sessions = await readCheckoutHeatmapSessions({ schema });
   const dbSessions = sessions.map(toDbRow);
   const dbEvents = sessions.flatMap(s =>
     (s.events || []).map(e => toDbEvent(e, s.id))
@@ -89,6 +92,7 @@ export async function POST(request) {
 
   for (const step of ["personal-info", "delivery", "pay"]) {
     const stepSessions = dbSessions.filter(s => s.step === step);
+    if (stepSessions.length === 0) continue;
     const stepEvents = dbEvents.filter(e =>
       stepSessions.some(s => s.id === e.session_id)
     );
@@ -110,53 +114,35 @@ export async function POST(request) {
     };
   }
 
-  // --- 4. Capture heatmap screenshots ---
-  const baseUrl = new URL(request.url).origin;
-  let screenshots = [];
-  try {
-    const screenshotResp = await fetch(`${baseUrl}/api/checkout-heatmap/screenshots`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.DASHBOARD_TOKEN}`,
-      },
-      body: JSON.stringify({}),
-    });
-    if (screenshotResp.ok) {
-      const data = await screenshotResp.json();
-      screenshots = data.screenshots ?? [];
-    }
-  } catch {
-    // Screenshots are best-effort; the report still generates without them
-  }
-
-  // --- 5. Build prompt ---
+  // --- 4. Call Claude (screenshots moved to client for async loading) ---
   const { system, userMessage } = buildReportPrompt({ aggregatedData, config });
-
-  // --- 6. Call Claude Opus 4.7 ---
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const imageBlocks = screenshots.map(s => ({
-    type: "image",
-    source: { type: "base64", media_type: "image/png", data: s.screenshotBase64 },
-  }));
-
-  const message = await client.messages.create({
-    model: "claude-opus-4-7",
-    max_tokens: 4096,
-    system,
-    messages: [
-      {
-        role: "user",
-        content: [...imageBlocks, { type: "text", text: userMessage }],
-      },
-    ],
-  });
-
+  // Sonnet for cost + speed; switch to claude-opus-4-7 post-integration with Autohero
+  let message;
+  try {
+    message = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      system,
+      messages: [{ role: "user", content: userMessage }],
+    });
+  } catch {
+    return NextResponse.json({ ok: false, error: "Claude API call failed" }, { status: 500 });
+  }
   const rawText = message.content[0]?.text ?? "";
 
-  // --- 7. Parse and validate response ---
-  const report = parseReportResponse(rawText);
+  // --- 5. Parse and validate response ---
+  // Strip markdown code fences Claude sometimes wraps around JSON
+  const cleanedText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  let report;
+  try {
+    report = parseReportResponse(cleanedText);
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e.message ?? "Failed to parse report response" }, { status: 500 });
+  }
 
-  return NextResponse.json({ ok: true, report });
+  const stepsWithData = Object.keys(aggregatedData.stepAnalysis);
+
+  return NextResponse.json({ ok: true, report, aggregatedData, stepsWithData });
 }

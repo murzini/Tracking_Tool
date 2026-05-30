@@ -12,7 +12,7 @@ import { test, expect, Page } from "@playwright/test";
 // Pre-requisite: db-setup.mjs must have been run once to create the sim schemas
 // (heatmap_sim + heatmap_test_sim). The suite runs against heatmap_test_sim.
 
-const TOKEN = "m6-dev-token";
+const TOKEN = "dashboard-link";
 const DASHBOARD_URL = `/dashboard?token=${TOKEN}`;
 
 type SimSession = {
@@ -165,12 +165,16 @@ test("Test 61 — Viewer renders sim data with source=sim; real heatmap unaffect
   // Generate sim sessions.
   await generateSim(page);
 
+  // Warm the query route so the viewer's useEffect fetch hits a warm Neon connection.
+  await page.request.get("/api/checkout-heatmap?source=sim", { timeout: 60_000 });
+
   // Open viewer with source=sim — session count must be > 1000.
   await page.goto("/checkout/001/heatmap?step=personal-info&view=desktop_view&source=sim");
   await page.waitForLoadState("networkidle");
 
   const simCountEl = page.locator("[data-heatmap-session-count]");
-  await expect(simCountEl, "session count element visible").toBeVisible({ timeout: 30_000 });
+  // Wait for the sessions fetch (triggered by useEffect after mount) to populate the count.
+  await expect(simCountEl, "viewer shows sim sessions").not.toHaveText("0", { timeout: 60_000 });
   const simCountText = await simCountEl.textContent();
   const simCount = parseInt(simCountText ?? "0", 10);
   expect(simCount, "viewer shows sim sessions (desktop_view ~60% of total)").toBeGreaterThan(500);
@@ -197,7 +201,8 @@ test("Test 61 — Viewer renders sim data with source=sim; real heatmap unaffect
 test("Test 62 — Generated distribution is approximately correct", async ({ page }) => {
   test.setTimeout(120_000);
 
-  // Generate sim sessions.
+  // Clear any sim data left by a previous test before generating a fresh batch.
+  await discardSim(page);
   const { count: total } = await generateSim(page);
 
   // Total count must be in the expected range.
@@ -237,6 +242,9 @@ test("Test 62 — Generated distribution is approximately correct", async ({ pag
 test("Test 63 — Dashboard Simulation section: Generate, View Simulation, Discard", async ({ page, context }) => {
   test.setTimeout(120_000);
 
+  // Clear any real sessions left over from Tests 59/60 so the count starts at 0.
+  await page.request.delete("/api/checkout-heatmap");
+
   // Navigate to dashboard.
   await page.goto(DASHBOARD_URL);
   await page.waitForLoadState("networkidle");
@@ -249,29 +257,32 @@ test("Test 63 — Dashboard Simulation section: Generate, View Simulation, Disca
   await expect(page.locator("[data-dashboard-sim-status]"), "initial status: no data")
     .toContainText("No simulation data");
 
-  // Click Generate — wait for status to update to a non-zero count.
+  // "Heatmap simulation" button label (renamed from "Generate").
+  await expect(page.locator("[data-dashboard-sim-generate]"), "button label is 'Heatmap simulation'")
+    .toContainText("Heatmap simulation");
+
+  // "Report simulation" button must be present and disabled when no sim data.
+  const reportSimBtn = page.locator("[data-dashboard-sim-report]");
+  await expect(reportSimBtn, "Report simulation button visible").toBeVisible();
+  await expect(reportSimBtn, "Report simulation button disabled when no sim data").toBeDisabled();
+
+  // Click "Heatmap simulation" — wait for status to update to a non-zero count.
   await page.locator("[data-dashboard-sim-generate]").click();
   await expect(page.locator("[data-dashboard-sim-status]"), "status shows count after generate")
     .not.toContainText("No simulation data", { timeout: 60_000 });
   await expect(page.locator("[data-dashboard-sim-status]"), "status shows sessions")
     .toContainText("simulated sessions ready", { timeout: 60_000 });
 
+  // "Report simulation" button must be enabled after data is generated.
+  await expect(reportSimBtn, "Report simulation button enabled after generate").toBeEnabled({ timeout: 5_000 });
+
   await page.screenshot({
     path: "test-results/M6.1 Test 63 - Dashboard Simulation section/Check evidence/dashboard-sim.png",
     fullPage: false,
   });
 
-  // Click View Simulation → new tab opens with source=sim and step=personal-info.
-  const newTabPromise = context.waitForEvent("page");
-  await page.locator("[data-dashboard-sim-view]").click();
-  const newTab = await newTabPromise;
-  await newTab.waitForLoadState("domcontentloaded");
-  const newTabUrl = newTab.url();
-  expect(newTabUrl, "viewer URL contains source=sim").toContain("source=sim");
-  expect(newTabUrl, "viewer URL contains step=personal-info").toContain("step=personal-info");
-  await newTab.close();
-
-  console.log(`  View Simulation → ${newTabUrl} ✓`);
+  // Note: "View Simulation" button was removed in M7 (replaced by "Report simulation").
+  // Discard flow is tested below.
 
   // Click Discard — confirm overlay appears.
   await page.locator("[data-dashboard-sim-discard]").click();

@@ -176,4 +176,27 @@ describe('buildScreenshotRequests', () => {
       expect(r.url).toContain('/checkout/042/heatmap')
     }
   })
+
+  it('steps param limits results to the specified steps', () => {
+    const reqs = buildScreenshotRequests({ baseUrl: BASE, steps: ['personal-info'] })
+    expect(reqs).toHaveLength(3)
+    expect(reqs.every(r => r.step === 'personal-info')).toBe(true)
+  })
+
+  it('steps param with two steps returns 6 requests', () => {
+    const reqs = buildScreenshotRequests({ baseUrl: BASE, steps: ['personal-info', 'pay'] })
+    expect(reqs).toHaveLength(6)
+    const steps = reqs.map(r => r.step)
+    expect(steps.filter(s => s === 'personal-info')).toHaveLength(3)
+    expect(steps.filter(s => s === 'pay')).toHaveLength(3)
+  })
+
+  it('unknown steps are filtered out', () => {
+    const reqs = buildScreenshotRequests({ baseUrl: BASE, steps: ['personal-info', 'not-a-step'] })
+    expect(reqs).toHaveLength(3)
+  })
+
+  it('empty steps array falls back to all 9 requests', () => {
+    expect(buildScreenshotRequests({ baseUrl: BASE, steps: [] })).toHaveLength(9)
+  })
 })

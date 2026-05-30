@@ -4,7 +4,7 @@ import { test, expect, Page } from "@playwright/test";
 // Test 54: Dashboard renders with valid token; wrong/missing token → blocked;
 //          config Save updates the stored config; Clear-data wipes all sessions.
 
-const TOKEN = "m6-dev-token";
+const TOKEN = "dashboard-link";
 const DASHBOARD_URL = `/dashboard?token=${TOKEN}`;
 
 type Config = {
@@ -110,9 +110,17 @@ test("Test 54 — Dashboard auth gate, Data section renders, Save updates config
   // Wait for the "Saved" feedback text.
   await expect(page.getByText("Saved")).toBeVisible({ timeout: 5000 });
 
-  // Verify via API that the config was persisted.
+  // Neon may have a short commit-visibility window under load; poll until the
+  // persisted value lands rather than reading once and racing the DB write.
+  await expect
+    .poll(async () => (await getConfig(page)).steps?.["pay"], {
+      message: "pay step disabled after Save",
+      timeout: 5000,
+    })
+    .toBe(false);
+
+  // personal-info should remain enabled — read once, value is now stable.
   const afterSave = await getConfig(page);
-  expect(afterSave.steps?.["pay"], "pay step disabled after Save").toBe(false);
   expect(afterSave.steps?.["personal-info"], "personal-info still enabled").toBe(true);
 
   console.log("  Save → config persisted: pay=false ✓");

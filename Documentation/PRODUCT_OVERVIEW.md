@@ -18,10 +18,21 @@
 *Quick orientation so the live state isn't buried in the decision log below. For session-to-session continuity, see the repo-root `onboarding.md`.*
 
 - **Last closed: M6.2 — Unit Test Foundation (2026-05-28).** 54 Vitest unit tests across 4 files, all passing. No e2e changes. Full detail: the **M6.2** subsection under Future Milestones.
-- **Active: M7 (AI-powered report).** Parts 1–7 done (269 unit tests total). Part 8 (real report page) next.
+- **Active: M7 (AI-powered report).** Parts 1–9 done; report pipeline live end-to-end (data → Claude Sonnet + separate screenshots → 4-section report page). Part 10 (close gates) in progress. See **M7 implementation decisions** subsection for revisions to the frozen plan.
 - **Closed milestones:** M1 (Personal Information heatmap), M2 (full checkout coverage + auto-discovery scanner), M3 (Postgres store + query API), M4 (Extended Interaction Capture), M5 (Login Step and Individual Session Attribution), M6 (Admin Dashboard). Their sections below are settled history — recorded for context, not active scope; don't re-litigate.
 - **Where things live in this doc:** most recently closed scope → the **M6** section; settled per-milestone decisions → the **M1–M6** sections (history, marked `STATUS: CLOSED`); cross-cutting debt → the **Tech Debt** register; not-yet-started work → **Future Milestones** M6.1–M8; speculative ideas → **Potential post-MVP items**.
 - **This is an append-only decision log** — later dated notes can supersede earlier ones in place. When two notes seem to conflict, the most recent dated note and the current code win.
+
+## POC usage guidelines
+
+The system holds one active config at a time. Changing and saving a new config overwrites the previous one. All sessions are stored in one pool — the heatmap and report filter them by the saved timeframe. There is no built-in separation between session sets recorded under different configs.
+
+To avoid mixing data from different experiments, follow this workflow:
+- **Do not use overlapping timeframes** for different recording runs.
+- **Plan one report at a time:** define the goal upfront, configure the dashboard (steps, timeframe, event types, sampling rate), record sessions, then export the heatmap and report.
+- Changing config mid-run (e.g. switching steps or timeframe while sessions are being recorded) will mix data from the old and new config within the same query result.
+
+Config versioning — the ability to run and compare multiple named configs in parallel — is deferred to post-MVP (see Potential post-MVP items, item 4).
 
 ## Current Shop
 The current Shop is a standalone Next.js sandbox that simulates the landing, search, details, checkout, and thank-you flow. It is our controlled test environment where we will build and validate this product before moving toward broader usage.
@@ -165,13 +176,19 @@ Tech debt M6.1 is likely to introduce, identified upfront at milestone-start (20
 
 ### Anticipated (M7) — identified at planning
 Tech debt M7 is likely to introduce, identified upfront at milestone-start (2026-05-28). Outcomes to be marked at M7 close.
+- **Heatmap screenshot capture shows loading state for mouse-moves view (2026-05-29).** `screenshots/route.js` resolved its selector too early on some views — the captured image showed "Loading checkout preview…" with 0 sessions instead of the rendered heatmap. **Fixed 2026-05-30:** `data-heatmap-checkout-ready` attribute added to `app/checkout/[sku]/heatmap/page.jsx` (emitted only after catalog item loads); `screenshots/route.js` now waits on `[data-heatmap-checkout-ready]`. No automated test for this path — accepted debt (disproportionate effort for a POC demo flow). **Non-critical** — other views captured correctly; fix before M8.
 - **Heatmap screenshot capture approach TBD (critical if wrong choice).** Two options: Playwright server-side headless screenshots (~10–15s for 6 screenshots, already in project) vs client-side `canvas.toDataURL()` (~1–2s, requires client coordination). Decision in Part 5. If Playwright: must ensure the headless browser can authenticate and render the heatmap pages correctly server-side.
 - **Report generation timeout risk.** Vercel serverless functions have a 10s default timeout (60s max on Pro plan). Total generation time ~30–50s. The report API route (`/api/checkout-heatmap/report`) must set `export const maxDuration = 60` (Vercel Pro) or use a background/streaming approach. To be validated in Part 7.
 - **Anthropic API key management.** `ANTHROPIC_API_KEY` must be added to `.env.local` and Vercel environment variables before Part 7. Already excluded from git by `.gitignore` patterns. Operational prerequisite.
-- **Report not cached.** Each "Generate Report" click runs fresh SQL queries + a new Opus call (~$0.15). Acceptable for POC (infrequent, manual). Cache in M8 if needed.
+- **Report not cached.** Each "Generate Report" click runs fresh SQL queries + a new Opus call (~$0.15). Acceptable for POC (infrequent, manual). **Targeted in M7 Part 9** — cache keyed to session snapshot.
 - **Draft design in hypotheses is text-only.** Opus 4.7 describes design changes in text; it does not produce visual designs. Section 4 contains text descriptions only. Accepted POC limitation.
-- **Schema-migration burden grows (carry-over from M6.1).** Any DB schema changes in M7 must target `public`, `heatmap_sim`, and `heatmap_test` schemas in `scripts/db-setup.mjs`.
+- **Schema-migration burden grows (carry-over from M6.1).** Any DB schema changes in M7 must target `public`, `heatmap_sim`, `heatmap_test`, and now the demo schemas (`heatmap_demo`, `heatmap_test_demo`) in `scripts/db-setup.mjs`.
 - **Suite runtime growth.** M7.3 biz-logic audit may add many new unit tests; revisit parallelism/sharding if total runtime becomes painful.
+- **Screenshot capture is sequential — report takes 45–90s locally.** `app/api/checkout-heatmap/screenshots/route.js` captures 9 Playwright pages (3 steps × 3 types) one at a time in a `for` loop. Each page: browser `goto` with `waitUntil: "networkidle"` (waits for all network activity to stop, including Neon DB fetches) + `waitForSelector` + `screenshot`. At ~5–10s per page, the total is 45–90s. The report route's `AbortSignal.timeout(20000)` aborts the HTTP connection to the screenshots API at 20s, but the screenshots route continues running server-side (no Vercel kill locally), which can tie up the dev server and interact with the parallel Claude call. Combined with Claude (Sonnet 4.6) taking 20–50s to generate a full 4-section JSON report, the end-to-end time exceeds 1 minute locally. **Fix:** parallelise the Playwright captures inside the screenshots route using `Promise.all` over all 9 requests (open all pages concurrently instead of sequentially). Expected improvement: screenshot time drops from 45–90s to ~10–15s, well under the 20s abort ceiling, leaving Claude as the only bottleneck at ~20–50s. **RESOLVED 2026-05-29:** route now captures all 9 pages concurrently via `Promise.allSettled`; verified ~15s for `source=demo` (9/9 images). The report abort was also raised 20s → 45s for headroom.
+- **No automated tests for `source=demo` path, heatmap past-presets, and screenshot parallelisation (introduced Part 9–10).** These three behaviors are verified manually only (curl: 9/9 demo images; visual dashboard check). Adding automated coverage would require a `heatmap_demo` schema in the test DB and fixture plumbing for the preset date math — disproportionate effort for a POC demo path. **Accepted debt at M7 close (2026-05-29).** Log in `TEST_CASES.md` if automated coverage is added in a future milestone.
+- ~~**Validation-error dot offset bug — FIXED (2026-05-29).**~~ **Test confirmed and resolved 2026-05-30.** `findNearestAnchor` in `checkoutHeatmapClient.js` stored `dx: 0, dy: 0` for all on-element clicks, forcing dots to the element centre. Wide elements such as `[data-field-error]` labels (spanning the full column) placed the dot far right of the actual click. Fix: always store the real offset from centre (`dx: surfacePoint.x − centerX`, same path as off-element clicks). Existing precision tests unaffected — they click at element centres so dx/dy ≈ 0 and dots still land at centre. Test 70 added to `m1-heatmap-anchor.spec.ts` and confirmed green 2026-05-30.
+- **Heatmap screenshot capture shows loading state for mouse-moves view (observed in demo, 2026-05-29).** `app/api/checkout-heatmap/screenshots/route.js` uses `waitForSelector` but the selector resolves before the checkout component finishes rendering — the captured image shows "Loading checkout preview…" with 0 sessions instead of the actual heatmap. Fix: wait on a more specific ready-signal (e.g. absence of the loading text, or presence of `[data-heatmap-surface]` with rendered content). Affects moves screenshots; clicks and scrolls may be similarly affected. Non-critical for the POC demo (other views capture correctly); fix before M8.
+- ~~**E2e suite: 15 tests failing, not investigated yet (2026-05-29).**~~ **Resolved 2026-05-30.** All 15 failures investigated and fixed: token mismatch (11 tests — `"m6-dev-token"` → `"dashboard-link"`); async-write races (Tests 36, 52, 53 — fixed with `expect.poll`); stale SSR config cache (Test 54 — `dashboard/page.jsx` now uses `getHeatmapConfigFresh()` + `force-dynamic`); data-isolation (Test 12 ×2 — `sessionStorage` cleared after DB wipe); Simulation section regressions (Tests 62, 63 — delete-before-generate; `[data-dashboard-sim-view]` selector removed). Heatmap-filter persistence race (Test 69 — `heatmapHydrated` ref guard added to `DashboardClient.jsx`). Suite 80/80 green confirmed 2026-05-30.
 
 ### Anticipated (M6.2) — identified at planning
 Tech debt M6.2 introduced by scoping unit tests only to already-pure modules; non-unit-testable logic was deferred. No critical items.
@@ -215,7 +232,34 @@ A second click visualisation: instead of one dot per element, merge nearby click
 - Loses per-element precision (blurs across the 10px mapping rule), so it cannot be the **default** click view and would need its own toggle + tests.
 - Part 8's MVP choice is **opacity-by-count on precise dots** instead (keeps precision, near-zero cost). The cloud is a richer follow-up, not built now.
 
+### 4. Config versioning — parallel recording experiments
 
+Today there is one active config at a time. Saving new settings (steps, timeframe, sampling rate, event types) overwrites the previous config, and all sessions flow into one shared pool. There is no way to run two configs simultaneously and compare the resulting data sets.
+
+Config versioning would let an admin save multiple named configs, each recording into its own labelled session set. The heatmap and report would then let you pick which config's data to view, enabling A/B-style comparisons — e.g. "Personal Information only, this week" vs "all steps, next 3 days."
+
+**Feasibility:** Requires a schema change (sessions tagged with a config version ID), a versioned config store, and UI to create/name/switch configs and filter views by version.
+
+**Constraints:**
+- Significant scope — touches capture, storage schema, ingest, query API, heatmap viewer, report, and dashboard UI.
+- Storage cost grows proportionally with the number of active configs recording in parallel.
+- Needs a clear session-attribution model: a session belongs to exactly one config version (the one active when it started).
+- Best treated as a dedicated milestone after the core POC proves out.
+
+### 5. Named report configurations with scheduled recording
+
+Today the dashboard has one active config at a time and the user manages recording manually. This feature introduces named, self-contained report configurations that cover the full lifecycle — from setup through data collection to output.
+
+**Dashboard changes required:**
+
+- **Data recording section** — gains support for multiple named report configs. Each config has a name and defines steps, timeframe, event types, and sampling rate. Recording starts automatically on the scheduled start date. Once recording has started the config is locked and cannot be changed. Configs scheduled for the future can still be edited. Multiple configs can run in parallel.
+- **Combined Heatmap + Report section** — Heatmap and Report become tabs inside a single section. Above the tabs, a shared progress header shows the selected report config name, its parameters, and how many sessions have been recorded so far. When the minimum session count is reached, the Heatmap tab and the Report tab both unlock and become executable. The user selects which named report config to view from a picker in this section.
+
+**Constraints:**
+- Requires config versioning (item 4) as a foundation — sessions must be tagged to a specific named config.
+- Schema change needed: sessions carry a `report_config_id` foreign key.
+- Locking logic must be enforced server-side, not just in the UI.
+- Best treated as a dedicated milestone, building on top of item 4.
 
 
 
@@ -814,7 +858,7 @@ AI-generated hypotheses for improving conversion. Each hypothesis: problem state
 
 #### M7 sequencing (parts)
 
-M7.1 → M7.2 → M7.3 → Part 4 (dashboard) → Part 5 (data aggregation) → Part 6 (screenshots) → Part 7 (AI integration) → Part 8 (report page) → Part 9 (close).
+M7.1 → M7.2 → M7.3 → Part 4 (dashboard) → Part 5 (data aggregation) → Part 6 (screenshots) → Part 7 (AI integration) → Part 8 (report page) → Part 9 (implementation) → Part 10 (close gates).
 
 **Design principle for all parts: maximise unit-testability.** Every part below extracts pure logic into its own module so it can be unit-tested without DB or browser. Any function that takes inputs and returns outputs (no side effects, no I/O) goes in a pure module under `lib/prototype/` with matching unit tests in `tests/unit/`. SQL queries, API routes, and React components stay thin wrappers around the pure logic.
 
@@ -826,17 +870,18 @@ M7.1 → M7.2 → M7.3 → Part 4 (dashboard) → Part 5 (data aggregation) → 
 - **Part 6:** Heatmap screenshot capture implementation. **Pure modules to extract (if applicable):** any coordinate/scaling/cropping math goes into `heatmapScreenshotHelpers.js` with unit tests; the actual capture I/O stays thin.
 - **Part 7:** Claude Opus 4.7 integration. **Pure modules to extract:** `reportPromptBuilder.js` (takes aggregated data + returns the prompt string/structure for Claude — pure, fully testable) and `reportResponseParser.js` (takes raw Claude JSON response + validates/parses/normalises it — pure, fully testable with mock responses). API route (`/api/checkout-heatmap/report`) is a thin wrapper that calls the prompt builder, makes the API call, calls the response parser. Unit tests cover prompt shape, response parsing, error cases, malformed responses.
 - **Part 8:** Report page — replace static mockup with real data + real screenshots + real Claude output; progress bar. **Pure modules to extract (if applicable):** any data-formatting helpers for rendering (`reportRenderHelpers.js`) with unit tests; React components stay thin.
-- **Part 9:** Close gates (unit tests, e2e tests, doc review, agent review, tech debt review, commit).
+- **Part 9:** Implementation — UI tweaks (Save button, Trash icon, live counter) **DONE**; screenshot parallelisation (concurrent capture) **DONE**; scope-driven screenshot capture (query which steps have data, capture only N×3 not always 9); images async on client (show Claude text first, screenshots load separately after render); charts/tables in report (`aggregatedData` returned to client + visual components per visualisation rule). Report caching and draft-design formatting deferred to next milestone.
+- **Part 10:** Close gates (unit tests, e2e tests, doc review, agent review, tech debt review, commit, push).
 
 #### M7 unit-test surface (summary)
 
 In addition to M7.1, M7.2, M7.3 unit tests, the new M7 code will be covered by:
 - `tests/unit/reportGateLogic.test.ts` — min-sessions gate state + note text (Part 4)
 - `tests/unit/reportAggregationTransforms.test.ts` — per-section data shaping (Part 5)
-- `tests/unit/heatmapScreenshotHelpers.test.ts` — any pure math/helpers (Part 6, if applicable)
-- `tests/unit/reportPromptBuilder.test.ts` — prompt construction (Part 7)
-- `tests/unit/reportResponseParser.test.ts` — response parsing + validation (Part 7)
-- `tests/unit/reportRenderHelpers.test.ts` — render helpers (Part 8, if applicable)
+- `tests/unit/heatmapScreenshotHelpers.test.ts` — any pure math/helpers (Part 6, if applicable) — *not created; no pure math helpers were needed; `reportScreenshotConfig.js` covers all testable logic*
+- `tests/unit/reportPromptBuilder.test.ts` — prompt construction (Part 7) — **created, 8 tests**
+- `tests/unit/reportResponseParser.test.ts` — response parsing + validation (Part 7) — **created, 9 tests**
+- `tests/unit/reportRenderHelpers.test.ts` — render helpers (Part 8, if applicable) — *not created; `boldText`/`Prose`/`SectionWrapper` stayed inline in `ReportClientPage.jsx` — minimal enough not to warrant extraction*
 
 Exact rule lists per file produced at part-start; tests added per part, kept green continuously.
 
@@ -853,19 +898,74 @@ Audit all business logic from M1–M5 for rules that are (a) durable and (b) tes
 
 **E2E tests — keep as-is (63):** all existing tests. No changes driven by M7.1/M7.2/M7.3 (extraction only; covered behavior unchanged). M7 report pipeline is new code — no existing test needs updating.
 
-**E2E tests — new (5): Tests 64–68.** New spec: `tests/e2e/m7-report.spec.ts`.
+**E2E tests — new (7): Tests 64–70.** New spec: `tests/e2e/m7-report.spec.ts` (Tests 64–69); Test 70 added to `tests/e2e/m1-heatmap-anchor.spec.ts`.
 
 - **Test 64 — Min-sessions gate:** Report section shows min-sessions dropdown + accumulated count; Generate Report button is disabled when count < minimum; enabled when count ≥ minimum.
 - **Test 65 — Report section position:** Dashboard sections appear in order: Data → Heatmap → Report → Simulation. `[data-dashboard-section="report"]` appears before `[data-dashboard-section="simulation"]`.
-- **Test 66 — Report API returns structured JSON:** `POST /api/checkout-heatmap/report` (authed) returns a JSON object with keys for each section; unauthenticated request returns 401.
-- **Test 67 — Report page renders all 4 sections:** `/dashboard/report?token=...` shows section markers for all four sections (intro, executive-summary, step-analysis, conclusions).
+- **Test 66 — Report API auth:** `POST /api/checkout-heatmap/report` (unauthenticated) returns 401. Auth check only — no real report is generated; calling Claude in every test run is slow, costly, and accepted test debt (decision 2026-05-29).
+- **Test 67 — Report: min-sessions selection persists after save and reload.** *(Replaced 2026-05-30 from original "Report page structure" — original mock-Claude render test deleted to avoid paid API calls in the suite.)* `localStorage.reportMinSessions` stores the admin's choice; dashboard reload restores it.
 - **Test 68 — Generate Report button note text:** note below button shows correct dynamic text with current min and accumulated count values.
+- **Test 69 — Heatmap: filter selections persist across page visits.** *(New 2026-05-30.)* `localStorage["heatmap-dashboard-heatmap"]` stores step/type/outcome/view on every change; navigating away and back to the dashboard restores all four.
+- **Test 70 — error:required-field dot offset at left edge.** *(New 2026-05-30; in `m1-heatmap-anchor.spec.ts`.)* Regression lock for the `dx:0/dy:0` bug fixed 2026-05-29. Clicks at the left edge of a wide `[data-field-error]` label; asserts dot lands at the actual click position, not the element centre.
+
+> **Accepted test debt (2026-05-29):** end-to-end report *generation* (real Claude API call → full JSON report) is **not covered by automated tests**. The cost and latency (~30–50s, ~$0.15/run) make it unsuitable for a test suite. Coverage is manual only. This risk is accepted for the POC.
 
 **Unit tests — M7.1:** pure module `lib/prototype/captureWindowCheck.js` — cover every boundary case for `from`/`to` date parsing (today as local end-of-day, past date, future date, missing value, invalid value). Exact count determined at implementation.
 
 **Unit tests — M7.2:** pure module `lib/prototype/ingestConfigGates.js` — cover each of the four gates (step gate, sampling gate, capture-window gate, event-type filter) with enabled/disabled states and edge cases. Exact count determined at implementation.
 
 **Unit tests — M7.3:** TBD — depends on M1–M5 audit findings. Exact count documented in `TEST_CASES.md` → M7.3 after audit.
+
+#### M7 implementation decisions (revised during Parts 8–9, 2026-05-29)
+
+Decisions that changed or extended the frozen plan above, made while building and manually testing the real report:
+
+- **AI model — Sonnet now, Opus on integration.** Running `claude-sonnet-4-6` for cost + speed during the POC. Switch to `claude-opus-4-7` once integrated with Autohero (real traffic, higher-stakes output). Documented in `FUTURE_THIRD_PARTY_INTEGRATION.md`.
+- **Screenshots are NOT sent to Claude.** Claude analyzes the aggregated data only. Heatmap screenshots are captured separately, returned in the report API response, and displayed in the report purely as visual illustrations. The two never intersect — Claude never spends image tokens. Reason: image tokens are priced by pixel dimensions (~750 tokens per 224×224 tile), so 9 screenshots dominated cost; the data already contains everything Claude needs.
+- **Screenshots + Claude run in parallel** via `Promise.allSettled` in the report route. Screenshots are best-effort with a 45s `AbortSignal.timeout`; a failure yields an empty screenshot list rather than failing the report.
+  - **Screenshot route is itself parallel (fixed 2026-05-29).** `screenshots/route.js` captures all 9 pages concurrently via `Promise.allSettled` (one browser, 9 pages) — ~10–15s, was 45–90s sequential. The old sequential loop blew past the report's then-20s abort, so reports always rendered with **no images**; the route was parallelised and the abort raised to 45s. This resolves the M7 "screenshot parallelisation" anticipated debt item.
+- **Min-sessions gate — added 20.** `MIN_SESSIONS_OPTIONS` is now `[20, 100, 200, 500, 1000]` (was `[100, 200, 500, 1000]`) so the admin can generate a report against a small real-data sample while testing. `DEFAULT_MIN_SESSIONS` stays 100.
+- **Sim-report feature.** The Simulation section's old "Generate" button is renamed **"Heatmap simulation"**; a new **"Report simulation"** button generates a report from simulation data (`/dashboard/report?token=...&source=sim`). The report route reads `source` and routes to the right schema via `resolveHeatmapSchema`. Screenshots ARE included in sim mode. New button is disabled when sim session count is 0.
+- **Send all aggregation items** to Claude (no trimming) — confirmed acceptable now that images are gone.
+- **All numbers are text for now.** The report narrative is text-heavy. Tables/charts to present numbers visually are **in Part 9 remaining scope** — pulled back from "Deferred" (2026-05-29 session).
+- **Report creation flow (agreed 2026-05-29).** Only Claude does analytical work; everything else is code — no extra API calls:
+  1. Fetch raw sessions + events from DB → **code** (SQL, scoped to config timeframe).
+  2. Aggregate + transform → **code** (`reportAggregationTransforms.js` — funnel totals, field stats, sequences, comparisons).
+  3. Build Claude prompt → **code** (`reportPromptBuilder.js`).
+  4. Generate narrative text + hypotheses → **one Claude API call** (Sonnet now, Opus on integration). Only expensive step.
+  5. Parse + validate Claude response → **code** (`reportResponseParser.js`).
+  6. Capture screenshots (parallel, scope-driven) → **code** (Playwright, runs in parallel with step 4).
+  7. Build charts/tables from `aggregatedData` → **code** (Recharts, client-side, instant).
+  8. Apply bold formatting to step names + data points in narrative → **code** (renderer, pattern-based).
+  9. Render full report → **code** (React, 4-section page).
+
+**Part 9 close tweaks — DONE (2026-05-29):**
+- **Save button in the Report section** — persists the admin's min-sessions choice to `localStorage` ("Saved" / "Unsaved changes" status; reads back on mount to avoid hydration mismatch).
+- **Simulation section cleanup** — removed "View Simulation"; Discard is now a `Trash2` icon button reusing the Data section's clear-data confirmation flow.
+- **Live session counter polling** (~10s) — the accumulated count refreshes on an interval against the current config (via a `configRef` so the closure stays fresh), not just on load/Save.
+
+**Part 9 remaining — ALL DONE (2026-05-29):**
+- **Tables & charts in the report — DONE.** `aggregatedData` + `stepsWithData` returned by report route. `ReportClientPage` renders Recharts bar charts (sessions-per-step, exit-reason, active/idle) and data tables (field abandonment, drop-off triggers, completors vs drop-offs) from `aggregatedData`. Recharts added as a regular dependency.
+- **Bold formatting in narrative — DONE.** `Prose` component uses `BOLD_PAT` regex to bold step names (`Personal Information`, `Choose Delivery`, `Pay & Finish`) and percentages (`\d+%`). Code-only, no Claude instruction.
+- **Images async on client — DONE.** Report route returns Claude text + `aggregatedData` + `stepsWithData` only (no screenshot fetch). Client fires a second fetch to `/api/checkout-heatmap/screenshots` with `{ steps: stepsWithData }` after text renders; screenshots populate without blocking the user.
+- **Scope-driven screenshot capture — DONE.** `buildScreenshotRequests` accepts optional `steps` param; route passes it to the function. Client sends `steps: stepsWithData` so only steps with session data are captured.
+- **Vercel-compatible screenshot capture — DONE (2026-05-29).** `screenshots/route.js` now uses `playwright-core` (regular dep) + `@sparticuz/chromium` (regular dep). On Vercel (`process.env.VERCEL`), uses `chromiumBinary.executablePath()` + `chromiumBinary.args`; locally, `executablePath: undefined` (playwright-core resolves to the `@playwright/test`-installed binary). `@playwright/test` remains a devDep for e2e tests only. `next.config.mjs` updated: `experimental.serverComponentsExternalPackages: ["playwright-core", "@sparticuz/chromium"]` prevents webpack bundling these at build time (was causing `chromium-bidi` not-found error). Verified working locally.
+
+**Demo setup for the live walkthrough — added 2026-05-29:**
+- **Frozen real-session set in a separate `heatmap_demo` schema.** The 22 real recorded sessions (1986 events) were **copied** (non-destructive) from `public` into a new `heatmap_demo` schema via `scripts/freeze-demo-sessions.mjs` (idempotent). Kept fully separate from the 1500-session `heatmap_sim` so the two never overlap. New `source=demo` added to the `resolveHeatmapSchema` allowlist; demo schemas (`heatmap_demo`, `heatmap_test_demo`) added to `db-setup.mjs`.
+- **Simulation section gained a "Data recorded based on Maksym's actions" subsection** — a static tooltip plus **Heatmap** and **Report** buttons that open in a new tab against `source=demo`. The existing 1500-sim "Heatmap simulation" button is unchanged (heatmap only).
+- **The three-part demo:** (1) 1500-sim heatmaps as before; (2) the frozen 22 drive a heatmap **and** a real Claude report (`source=demo`, bypasses the min-sessions gate by opening the report page directly); (3) the live Data + Heatmap sections stay on `public` to demo the real record→heatmap flow. To start (3) clean, the admin uses "Clear all data" (deletes `public` only — `heatmap_demo` is untouched).
+- **Earlier `ConfigTooltip`s removed.** The dynamic config tooltips briefly added to the Heatmap/Report headers were removed (and `formatConfigSummary` deleted) in favour of the static demo tooltip.
+- **Test debt (accepted at M7 close 2026-05-30).** The `source=demo` path, heatmap past-presets, screenshot parallelisation, and `data-heatmap-checkout-ready` ready-signal are verified manually only. Adding automated coverage would require a `heatmap_demo` schema in the test DB and fixture plumbing for preset date math — disproportionate effort for a POC demo path. Accepted. Log in `TEST_CASES.md` if automated coverage is added in a future milestone.
+
+**Timeframe presets split (2026-05-29):**
+- **Data section = future-facing** (`CAPTURE_PRESETS`: Today only / Next 7 days / Next 30 days / Custom) — it gates *new* recording, so only present/future dates make sense.
+- **Heatmap section = past/present** (`HEATMAP_PRESETS`: Today / Yesterday / This week / Last week / Last month / Custom) — it views *stored* data. `CaptureWindowSelect` now takes a `presets` prop; Monday-based week math lives in `heatmapPresetRange`.
+
+**Deferred to the next milestone:**
+- **Report caching per session-snapshot.** Cache the generated report keyed to the session data; regenerate only when data changes. Avoids paying for a fresh Claude call on every view.
+- **Hypotheses draft-design formatting.** Improve the formatting of design-change descriptions in Section 4 (Conclusions).
+- **Persistent visitor ID across sessions.** Currently a new `visitor_id` is minted on every login — the same real visitor logging in twice gets two unrelated IDs, making cross-session attribution impossible. Fix: on login completion, check localStorage first and reuse the existing ID if present; only mint a new one on a genuinely fresh visitor. Also expose `visitor_id` via the query API (currently stored in DB but not returned) so all sessions from one visitor can be aggregated by a single DB query.
 
 ### M8 — Integration Readiness
 All necessary preparations for embedding the product into a real product (e.g. Autohero). This includes stable API contracts, documented integration seams, clean separation between sandbox-specific and reusable logic, and any authentication or configuration work needed for external deployment.

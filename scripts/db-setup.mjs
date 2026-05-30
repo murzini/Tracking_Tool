@@ -33,7 +33,8 @@ if (!DATABASE_URL) {
 
 const FRESH = process.argv.includes('--fresh');
 const SCHEMAS = ['public', 'heatmap_test'];
-const SIM_SCHEMAS = ['heatmap_sim', 'heatmap_test_sim'];
+// Sim + demo schemas hold standalone session sets; they ignore runtime config.
+const SIM_SCHEMAS = ['heatmap_sim', 'heatmap_test_sim', 'heatmap_demo', 'heatmap_test_demo'];
 const sql = neon(DATABASE_URL);
 
 async function run(query, label) {
