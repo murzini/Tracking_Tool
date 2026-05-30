@@ -61,3 +61,58 @@ Needed because documentation is strong but large. It would scan architecture, pr
 - Suite runtime growth is real debt. Valuable tests, but slow suites can reduce team speed over time.
 - No app-health logging is worth tracking. Behavior data is strong, but crash and offline visibility are still weak.
 - Tour mode adds scaffolding debt. Not harmful now, but it adds noise and can confuse future work.
+
+## Logging and alerts
+
+Yes, this project should have small structured logs and alerts for the few flows that matter most.
+
+Start with these events:
+
+- `report_generation_started`
+- `report_generation_failed`
+- `report_generation_succeeded`
+- `report_parse_failed`
+- `report_timeout`
+- `report_auth_failed`
+- `config_save_failed`
+- `config_read_stale_or_mismatch`
+- `screenshot_capture_failed`
+- `db_query_failed`
+
+For each event, log:
+
+- timestamp
+- route name
+- environment
+- source like `demo` or `live`
+- request id
+- short error code
+- short human message
+- duration in ms
+- safe context like step count or payload size
+- no sensitive user data
+
+For report failures, capture:
+
+- DB aggregation time
+- Claude call time
+- total request time
+- HTTP status
+- timeout vs parse failure vs auth failure
+- response was JSON or plain text
+- prompt size and response size
+
+Start alerts with:
+
+- any `report_generation_failed` after deploy
+- more than `3` report failures in `15` minutes
+- any timeout spike
+- parse failure rate above a small threshold
+- screenshot failure spike
+- repeated auth failures if that may mean abuse or broken links
+
+Recommended setup:
+
+- start simple with structured logs plus email or Slack alerts
+- a good next step is Sentry for errors plus structured logs
+- keep it small, focused, and cheap first

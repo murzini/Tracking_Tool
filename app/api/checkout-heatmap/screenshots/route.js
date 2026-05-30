@@ -1,22 +1,116 @@
 import { NextResponse } from "next/server";
-import { chromium } from "playwright-core";
-import chromiumBinary from "@sparticuz/chromium";
-import { extractBearerToken, isAuthorizedToken } from "../../../../lib/prototype/dashboardAuth";
+import { extractBearerToken, isAuthorizedToken } from "../../../../lib/prototype/dashboardAuth.edge";
 import { buildScreenshotRequests } from "../../../../lib/prototype/reportScreenshotConfig";
 
-export const runtime = "nodejs";
-// Screenshots take ~10–15s for 9 pages; Vercel Pro allows up to 60s
-export const maxDuration = 60;
+export const runtime = "edge";
+
+const SCREENSHOTONE_API_URL = "https://api.screenshotone.com/take";
+const SCREENSHOT_WAIT_FOR_SELECTOR = "[data-heatmap-session-count],[data-heatmap-checkout-ready]";
+const SCREENSHOT_DELAY_SECONDS = 1;
+const SCREENSHOT_TIMEOUT_SECONDS = 25;
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function trimTrailingSlash(value) {
+  return value.replace(/\/$/, "");
+}
+
+function resolvePublicBaseUrl(request) {
+  const explicitBaseUrl =
+    process.env.SCREENSHOT_PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (explicitBaseUrl) {
+    return trimTrailingSlash(explicitBaseUrl);
+  }
+
+  const requestUrl = new URL(request.url);
+  if (LOCAL_HOSTNAMES.has(requestUrl.hostname)) {
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`;
+    }
+
+    return "";
+  }
+
+  return requestUrl.origin;
+}
+
+function getScreenshotOneAccessKey() {
+  return process.env.SCREENSHOTONE_ACCESS_KEY || process.env.SCREENSHOTONE_API_KEY || "";
+}
+
+function buildScreenshotOneUrl(req, accessKey) {
+  const params = new URLSearchParams();
+  params.set("access_key", accessKey);
+  params.set("url", req.url);
+  params.set("format", "png");
+  params.set("viewport_width", String(req.viewport.width));
+  params.set("viewport_height", String(req.viewport.height));
+  params.set("device_scale_factor", "1");
+  params.append("wait_until", "domcontentloaded");
+  params.append("wait_until", "networkidle2");
+  params.set("wait_for_selector", SCREENSHOT_WAIT_FOR_SELECTOR);
+  params.set("wait_for_selector_algorithm", "at_least_by_count");
+  params.set("error_on_selector_not_found", "true");
+  params.set("delay", String(SCREENSHOT_DELAY_SECONDS));
+  params.set("timeout", String(SCREENSHOT_TIMEOUT_SECONDS));
+  params.set("navigation_timeout", "20");
+  return `${SCREENSHOTONE_API_URL}?${params.toString()}`;
+}
+
+function arrayBufferToBase64(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
+async function captureScreenshot(req, accessKey) {
+  const controller = new AbortController();
+  const abortHandle = setTimeout(() => controller.abort(), (SCREENSHOT_TIMEOUT_SECONDS + 5) * 1000);
+
+  try {
+    const response = await fetch(buildScreenshotOneUrl(req, accessKey), {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`ScreenshotOne ${response.status}: ${errorText.slice(0, 200)}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const errorText = await response.text();
+      throw new Error(`ScreenshotOne returned JSON instead of an image: ${errorText.slice(0, 200)}`);
+    }
+
+    return {
+      step: req.step,
+      type: req.type,
+      screenshotBase64: arrayBufferToBase64(await response.arrayBuffer()),
+    };
+  } finally {
+    clearTimeout(abortHandle);
+  }
+}
 
 /**
  * POST /api/checkout-heatmap/screenshots
- * Auth-gated. Launches a headless Chromium browser, visits each heatmap URL,
- * waits for session data to load, and captures a screenshot.
+ * Auth-gated. Uses ScreenshotOne to capture public heatmap pages and returns
+ * the same payload shape as the former Playwright route.
  *
  * Body (all optional):
- *   source  — 'real' (default) | 'sim' | 'demo'
- *   sku     — product SKU for the heatmap path (default '001')
- *   steps   — string[] subset of ['personal-info','delivery','pay'] (scope-driven)
+ *   source  - accepted for compatibility; screenshot capture uses demo data
+ *   sku     - product SKU for the heatmap path (default '001')
+ *   steps   - string[] subset of ['personal-info','delivery','pay']
  *
  * Response:
  *   { ok: true, screenshots: [{ step, type, screenshotBase64 }] }
@@ -27,57 +121,49 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const accessKey = getScreenshotOneAccessKey();
+  if (!accessKey) {
+    return NextResponse.json(
+      { ok: false, error: "SCREENSHOTONE_ACCESS_KEY is not set" },
+      { status: 500 },
+    );
+  }
+
+  const baseUrl = resolvePublicBaseUrl(request);
+  if (!baseUrl) {
+    return NextResponse.json(
+      { ok: false, error: "SCREENSHOT_PUBLIC_BASE_URL is required outside Vercel" },
+      { status: 500 },
+    );
+  }
+
   let body = {};
   try {
     body = await request.json();
   } catch {
-    // empty or missing body — use defaults
+    // empty or missing body - use defaults
   }
 
-  const { source = "real", sku, steps } = body;
-  const baseUrl = new URL(request.url).origin;
+  const { sku, steps } = body;
   const requests = buildScreenshotRequests({
     baseUrl,
-    source,
+    source: "demo",
     ...(sku ? { sku } : {}),
     ...(steps ? { steps } : {}),
   });
 
-  // On Vercel use the serverless sparticuz binary; locally use installed Playwright chromium.
-  const isVercel = !!process.env.VERCEL;
-  const executablePath = isVercel ? await chromiumBinary.executablePath() : undefined;
+  const results = await Promise.allSettled(
+    requests.map((req) => captureScreenshot(req, accessKey)),
+  );
 
-  const browser = await chromium.launch({
-    args: isVercel ? chromiumBinary.args : [],
-    executablePath,
-    headless: true,
-  });
-
-  async function capture(req) {
-    const page = await browser.newPage();
-    try {
-      await page.setViewportSize(req.viewport);
-      // networkidle waits for the sessions API call inside the heatmap page to complete
-      await page.goto(req.url, { waitUntil: "networkidle", timeout: 20000 });
-      // Confirm React has rendered the stats bar (present even when 0 sessions)
-      await page.waitForSelector("[data-heatmap-session-count]", { timeout: 10000 });
-      await page.waitForSelector("[data-heatmap-checkout-ready]", { timeout: 10000 });
-      const buffer = await page.screenshot();
-      return { step: req.step, type: req.type, screenshotBase64: buffer.toString("base64") };
-    } finally {
-      await page.close();
+  const screenshots = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      screenshots.push(result.value);
+      continue;
     }
-  }
 
-  let screenshots = [];
-  try {
-    // Capture all pages concurrently in one browser (~10–15s, was 45–90s sequential).
-    const results = await Promise.allSettled(requests.map(capture));
-    screenshots = results
-      .filter((r) => r.status === "fulfilled")
-      .map((r) => r.value);
-  } finally {
-    await browser.close();
+    console.error("[screenshots] capture failed", result.reason);
   }
 
   return NextResponse.json({ ok: true, screenshots });
